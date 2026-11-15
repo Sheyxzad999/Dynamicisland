@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build macos --release
+      - name: Arxivlash
+        run: |
+          cd build/macos/Build/Products/Release
+          ditto -c -k --sequesterRsrc --keepParent "Dinamik Orol.app" "$GITHUB_WORKSPACE/Dinamik-Orol-${GITHUB_REF_NAME}-macOS.zip"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: Dinamik-Orol-*-macOS.zip
+          generate_release_notes: true
