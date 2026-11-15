@@ -26,6 +26,10 @@
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Hozir ijro etilayotgan musiqani notch ustida ko‘rsatish va boshqarish uchun.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Keyingi uchrashuvlaringizni notch ustida ko‘rsatish uchun.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Keyingi uchrashuvlaringizni notch ustida ko‘rsatish uchun.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>$(PRODUCT_COPYRIGHT)</string>
 	<key>NSMainNibFile</key>

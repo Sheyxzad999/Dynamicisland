@@ -1,5 +1,21 @@
 # O'zgarishlar tarixi
 
+## [1.1.0] - 2026-11-15
+
+### Qo'shildi
+- 📋 Nusxalar tarixi: oxirgi 50 ta matn, qadab qo'yish, parollar saqlanmaydi
+- 🔤 Lotin ↔ Kirill o'girgich (nusxalar ichida bir bosishda)
+- 💵 Valyuta: Markaziy bank kurslari va kalkulyator
+- 🌤 Ob-havo: hozirgi holat va 5 kunlik prognoz
+- 📅 Kalendar: yaqin uchrashuvlar, notch yonida sanash, boshlanish ogohlantirishi
+- 🎙 Mikrofon va kamera ishlatilayotganini bildiruvchi chiroqlar
+- ⚡ Tezkor amallar: qulflash, ekranni o'chirish, uyqu, ekran rasmi
+- Unit testlar (o'girgich va pul formati)
+
+### O'zgardi
+- Ochilgan orol kattalashtirildi, bo'limlar alohida panelga ko'chirildi
+- "Asosiy" bo'limida namoz, uchrashuv, ob-havo, dollar kursi va batareya bir qarashda
+
 ## [1.0.0] - 2026-11-15
 
 ### Qo'shildi

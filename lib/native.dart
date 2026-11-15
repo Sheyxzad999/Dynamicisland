@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -70,6 +72,31 @@ class MediaInfo {
       );
 }
 
+class ClipEvent {
+  final String text;
+  final String app;
+  const ClipEvent(this.text, this.app);
+}
+
+class CalendarEvent {
+  final String title;
+  final DateTime start;
+  final DateTime end;
+  final bool allDay;
+  final String location;
+  final int color;
+  const CalendarEvent(this.title, this.start, this.end, this.allDay, this.location, this.color);
+
+  factory CalendarEvent.fromMap(Map m) => CalendarEvent(
+        (m['title'] ?? '') as String,
+        DateTime.fromMillisecondsSinceEpoch(((m['start'] ?? 0) as num).toInt()),
+        DateTime.fromMillisecondsSinceEpoch(((m['end'] ?? 0) as num).toInt()),
+        m['allDay'] == true,
+        (m['location'] ?? '') as String,
+        0xFF000000 | int.parse((m['color'] ?? '0A84FF') as String, radix: 16),
+      );
+}
+
 class NotchInfo {
   final double width;
   final double height;
@@ -93,6 +120,11 @@ class Native {
   final battery = ValueNotifier<BatteryInfo>(const BatteryInfo());
   final media = ValueNotifier<MediaInfo>(MediaInfo());
   final notch = ValueNotifier<NotchInfo>(const NotchInfo());
+  final mic = ValueNotifier<bool>(false);
+  final camera = ValueNotifier<bool>(false);
+  final calendarChanged = ValueNotifier<int>(0);
+  final _clip = StreamController<ClipEvent>.broadcast();
+  Stream<ClipEvent> get clipboard => _clip.stream;
 
   Future<void> init() async {
     _ch.setMethodCallHandler((call) async {
@@ -103,6 +135,15 @@ class Native {
           battery.value = BatteryInfo.fromMap(call.arguments as Map);
         case 'media':
           media.value = MediaInfo.fromMap(call.arguments as Map);
+        case 'clipboard':
+          final m = call.arguments as Map;
+          _clip.add(ClipEvent(m['text'] as String, (m['app'] ?? '') as String));
+        case 'privacy':
+          final m = call.arguments as Map;
+          mic.value = m['mic'] == true;
+          camera.value = m['camera'] == true;
+        case 'calendarChanged':
+          calendarChanged.value++;
         case 'screen':
           notch.value = NotchInfo.fromMap(call.arguments as Map);
       }
@@ -126,5 +167,17 @@ class Native {
       (await _ch.invokeMethod('getLaunchAtLogin')) == true;
   Future<bool> setLaunchAtLogin(bool v) async =>
       (await _ch.invokeMethod('setLaunchAtLogin', {'enabled': v})) == true;
+  Future<void> copyText(String text) => _ch.invokeMethod('copyText', {'text': text});
+  Future<void> focusKeyboard() => _ch.invokeMethod('focusKeyboard');
+  Future<void> releaseKeyboard() => _ch.invokeMethod('releaseKeyboard');
+  Future<void> action(String name) => _ch.invokeMethod('action', {'name': name});
+  Future<String> calendarStatus() async => (await _ch.invokeMethod('calendarStatus')) as String;
+  Future<bool> requestCalendar() async => (await _ch.invokeMethod('requestCalendar')) == true;
+  Future<void> openCalendar() => _ch.invokeMethod('openCalendar');
+  Future<List<CalendarEvent>> getEvents() async {
+    final list = (await _ch.invokeMethod('getEvents')) as List? ?? [];
+    return list.map((e) => CalendarEvent.fromMap(e as Map)).toList();
+  }
+
   Future<void> quit() => _ch.invokeMethod('quit');
 }

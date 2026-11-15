@@ -1,5 +1,8 @@
 import Cocoa
 import FlutterMacOS
+import CoreAudio
+import CoreMediaIO
+import EventKit
 import IOKit.ps
 import ServiceManagement
 
@@ -19,6 +22,11 @@ class MainFlutterWindow: NSPanel {
   private var lastBattery: [String: Any] = [:]
   private var lastMedia: [String: Any] = [:]
   private let scriptQueue = DispatchQueue(label: "uz.dinamikorol.applescript")
+  private var clipTimer: Timer?
+  private var privacyTimer: Timer?
+  private var lastChangeCount = NSPasteboard.general.changeCount
+  private var lastPrivacy: [String: Bool] = [:]
+  private let eventStore = EKEventStore()
 
   override var canBecomeKey: Bool { true }
   override var canBecomeMain: Bool { false }
@@ -59,6 +67,16 @@ class MainFlutterWindow: NSPanel {
     mediaTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
       self?.pollMedia()
     }
+
+    clipTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+      self?.checkClipboard()
+    }
+    privacyTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+      self?.checkPrivacy()
+    }
+    NotificationCenter.default.addObserver(
+      forName: .EKEventStoreChanged, object: eventStore, queue: .main
+    ) { [weak self] _ in self?.channel.invokeMethod("calendarChanged", arguments: nil) }
 
     super.awakeFromNib()
     orderFrontRegardless()
@@ -158,6 +176,33 @@ class MainFlutterWindow: NSPanel {
           result(FlutterError(code: "login", message: error.localizedDescription, details: nil))
         }
       } else { result(false) }
+    case "copyText":
+      let pb = NSPasteboard.general
+      pb.clearContents()
+      pb.setString(args["text"] as? String ?? "", forType: .string)
+      lastChangeCount = pb.changeCount
+      result(nil)
+    case "focusKeyboard":
+      makeKey()
+      result(nil)
+    case "releaseKeyboard":
+      if isKeyWindow {
+        resignKey()
+        NSWorkspace.shared.frontmostApplication?.activate()
+      }
+      result(nil)
+    case "action":
+      quickAction(args["name"] as? String ?? "")
+      result(nil)
+    case "calendarStatus":
+      result(calendarStatus())
+    case "requestCalendar":
+      requestCalendar { granted in result(granted) }
+    case "getEvents":
+      result(upcomingEvents())
+    case "openCalendar":
+      NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Calendar.app"))
+      result(nil)
     case "quit":
       NSApp.terminate(nil)
       result(nil)
@@ -280,5 +325,147 @@ class MainFlutterWindow: NSPanel {
       NSAppleScript(source: "tell application \"\(app)\" to \(verb)")?.executeAndReturnError(&err)
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { self?.pollMedia() }
     }
+  }
+
+  // MARK: - Nusxalar tarixi
+
+  private func checkClipboard() {
+    let pb = NSPasteboard.general
+    guard pb.changeCount != lastChangeCount else { return }
+    lastChangeCount = pb.changeCount
+    let types = pb.types?.map { $0.rawValue } ?? []
+    // Parol menejerlari maxfiy matnni shu belgilar bilan nusxalaydi
+    if types.contains("org.nspasteboard.ConcealedType") || types.contains("org.nspasteboard.TransientType") {
+      return
+    }
+    guard let text = pb.string(forType: .string),
+          !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    let app = NSWorkspace.shared.frontmostApplication?.localizedName ?? ""
+    channel.invokeMethod("clipboard", arguments: ["text": String(text.prefix(20000)), "app": app])
+  }
+
+  // MARK: - Mikrofon va kamera
+
+  private func isMicInUse() -> Bool {
+    var dev = AudioDeviceID(0)
+    var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+    var addr = AudioObjectPropertyAddress(
+      mSelector: kAudioHardwarePropertyDefaultInputDevice,
+      mScope: kAudioObjectPropertyScopeGlobal,
+      mElement: kAudioObjectPropertyElementMain)
+    guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &dev) == noErr,
+          dev != 0 else { return false }
+    var running: UInt32 = 0
+    size = UInt32(MemoryLayout<UInt32>.size)
+    addr.mSelector = kAudioDevicePropertyDeviceIsRunningSomewhere
+    guard AudioObjectGetPropertyData(dev, &addr, 0, nil, &size, &running) == noErr else { return false }
+    return running != 0
+  }
+
+  private func isCameraInUse() -> Bool {
+    var addr = CMIOObjectPropertyAddress(
+      mSelector: CMIOObjectPropertySelector(kCMIOHardwarePropertyDevices),
+      mScope: CMIOObjectPropertyScope(kCMIOObjectPropertyScopeGlobal),
+      mElement: CMIOObjectPropertyElement(kCMIOObjectPropertyElementMain))
+    var dataSize: UInt32 = 0
+    let sys = CMIOObjectID(kCMIOObjectSystemObject)
+    guard CMIOObjectGetPropertyDataSize(sys, &addr, 0, nil, &dataSize) == 0, dataSize > 0 else { return false }
+    var devices = [CMIOObjectID](repeating: 0, count: Int(dataSize) / MemoryLayout<CMIOObjectID>.size)
+    var used: UInt32 = 0
+    guard CMIOObjectGetPropertyData(sys, &addr, 0, nil, dataSize, &used, &devices) == 0 else { return false }
+    for d in devices {
+      var a = CMIOObjectPropertyAddress(
+        mSelector: CMIOObjectPropertySelector(kCMIODevicePropertyDeviceIsRunningSomewhere),
+        mScope: CMIOObjectPropertyScope(kCMIOObjectPropertyScopeWildcard),
+        mElement: CMIOObjectPropertyElement(kCMIOObjectPropertyElementWildcard))
+      var running: UInt32 = 0
+      var u: UInt32 = 0
+      if CMIOObjectGetPropertyData(d, &a, 0, nil, UInt32(MemoryLayout<UInt32>.size), &u, &running) == 0,
+         running != 0 { return true }
+    }
+    return false
+  }
+
+  private func checkPrivacy() {
+    let p = ["mic": isMicInUse(), "camera": isCameraInUse()]
+    if p != lastPrivacy {
+      lastPrivacy = p
+      channel.invokeMethod("privacy", arguments: p)
+    }
+  }
+
+  // MARK: - Tezkor amallar
+
+  private func run(_ path: String, _ args: [String]) {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: path)
+    p.arguments = args
+    try? p.run()
+  }
+
+  private func quickAction(_ name: String) {
+    switch name {
+    case "lock":
+      if let h = dlopen("/System/Library/PrivateFrameworks/login.framework/Versions/Current/login", RTLD_NOW),
+         let sym = dlsym(h, "SACLockScreenImmediate") {
+        typealias Lock = @convention(c) () -> Int32
+        _ = unsafeBitCast(sym, to: Lock.self)()
+      } else {
+        run("/usr/bin/pmset", ["displaysleepnow"])
+      }
+    case "display":
+      run("/usr/bin/pmset", ["displaysleepnow"])
+    case "sleep":
+      run("/usr/bin/pmset", ["sleepnow"])
+    case "screenshot":
+      NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Screenshot.app"))
+    default:
+      break
+    }
+  }
+
+  // MARK: - Kalendar
+
+  private func calendarStatus() -> String {
+    let s = EKEventStore.authorizationStatus(for: .event)
+    switch s {
+    case .notDetermined: return "notDetermined"
+    case .denied, .restricted: return "denied"
+    default:
+      if #available(macOS 14.0, *), s == .writeOnly { return "denied" }
+      return "granted"
+    }
+  }
+
+  private func requestCalendar(_ done: @escaping (Bool) -> Void) {
+    let finish: (Bool, Error?) -> Void = { granted, _ in DispatchQueue.main.async { done(granted) } }
+    if #available(macOS 14.0, *) {
+      eventStore.requestFullAccessToEvents(completion: finish)
+    } else {
+      eventStore.requestAccess(to: .event, completion: finish)
+    }
+  }
+
+  private func upcomingEvents() -> [[String: Any]] {
+    guard calendarStatus() == "granted" else { return [] }
+    let cal = Calendar.current
+    let start = cal.startOfDay(for: Date())
+    let end = cal.date(byAdding: .day, value: 3, to: start)!
+    let pred = eventStore.predicateForEvents(withStart: start, end: end, calendars: nil)
+    return eventStore.events(matching: pred)
+      .sorted { $0.startDate < $1.startDate }
+      .prefix(40)
+      .map { e in
+        let c = e.calendar.color.usingColorSpace(.sRGB) ?? .systemBlue
+        let hex = String(format: "%02X%02X%02X", Int(c.redComponent * 255), Int(c.greenComponent * 255), Int(c.blueComponent * 255))
+        return [
+          "title": e.title ?? "",
+          "start": e.startDate.timeIntervalSince1970 * 1000,
+          "end": e.endDate.timeIntervalSince1970 * 1000,
+          "allDay": e.isAllDay,
+          "location": e.location ?? "",
+          "color": hex,
+        ]
+      }
   }
 }
