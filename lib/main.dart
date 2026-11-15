@@ -91,6 +91,9 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   bool launchAtLogin = false;
   String? _lastPrayerAlert;
   String? _lastEventAlert;
+  String? _armedAction; // tasdiq kutayotgan tezkor amal
+  Timer? _armTimer;
+  Timer? _hoverTimer;
 
   late final AnimationController eq =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
@@ -140,10 +143,15 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
 
   void _onHover() {
     _collapseTimer?.cancel();
+    _hoverTimer?.cancel();
     if (native.hover.value) {
-      setState(() {
-        expanded = true;
-        if (alert != null && alert!.kind != AlertKind.charging) alert = null;
+      // Kursor shunchaki ustidan o'tib ketsa ochilmasin: bir lahza to'xtashi kerak
+      _hoverTimer = Timer(const Duration(milliseconds: 220), () {
+        if (!native.hover.value || !mounted) return;
+        setState(() {
+          expanded = true;
+          if (alert != null && alert!.kind != AlertKind.charging) alert = null;
+        });
       });
     } else {
       _collapseTimer = Timer(const Duration(milliseconds: 300), () {
@@ -153,6 +161,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
           setState(() {
             expanded = false;
             dragging = false;
+            _armedAction = null;
           });
         }
       });
@@ -228,6 +237,8 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   void dispose() {
     _ticker?.cancel();
     _collapseTimer?.cancel();
+    _hoverTimer?.cancel();
+    _armTimer?.cancel();
     eq.dispose();
     super.dispose();
   }
@@ -511,6 +522,47 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     (Icons.screenshot_monitor_rounded, 'Ekran rasmi', 'screenshot'),
   ];
 
+  /// Qulflash/uyqu kabi amallar ikki bosishni talab qiladi (tasodifan bosilmasligi uchun).
+  Widget _actionButton(IconData icon, String label, String id) {
+    final needsConfirm = id != 'screenshot';
+    final armed = _armedAction == id;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Tap(
+        tooltip: armed ? null : label,
+        onTap: () {
+          if (!needsConfirm || armed) {
+            _armTimer?.cancel();
+            setState(() => _armedAction = null);
+            native.action(id);
+            return;
+          }
+          _armTimer?.cancel();
+          setState(() => _armedAction = id);
+          _armTimer = Timer(const Duration(seconds: 3), () {
+            if (mounted) setState(() => _armedAction = null);
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          height: 28,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: armed ? kRed.withValues(alpha: 0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 15, color: armed ? kRed : kDim),
+            if (armed) ...[
+              const SizedBox(width: 5),
+              const Text('Yana bosing', style: TextStyle(color: kRed, fontSize: 11, fontWeight: FontWeight.w600)),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+
   Widget _expanded(NotchInfo n, Size size) {
     final side = (size.width - n.width) / 2;
     final b = native.battery.value;
@@ -525,15 +577,10 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
             child: Padding(
               padding: const EdgeInsets.only(left: 18),
               child: Row(children: [
-                for (final a in _actions)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Tap(
-                      tooltip: a.$2,
-                      onTap: () => native.action(a.$3),
-                      child: Icon(a.$1, size: 16, color: kDim),
-                    ),
-                  ),
+                Text(
+                  '${fmtTime(DateTime.now())}  ·  ${DateTime.now().day}-${uzMonths[DateTime.now().month - 1]}',
+                  style: const TextStyle(color: kDim, fontSize: 12),
+                ),
               ]),
             ),
           ),
@@ -590,6 +637,8 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
                   ]),
                 ),
               ),
+            const Spacer(),
+            for (final a in _actions) _actionButton(a.$1, a.$2, a.$3),
           ]),
         ),
       ),

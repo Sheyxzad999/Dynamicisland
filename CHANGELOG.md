@@ -1,5 +1,13 @@
 # O'zgarishlar tarixi
 
+## [1.1.1] - 2026-11-15
+
+### Tuzatildi
+- Orol ochiq turganda menyu qatorini bosish tasodifan ekranni qulflab qo'yardi. Tezkor tugmalar
+  menyu qatoridan pastga ko'chirildi, menyu qatori esa orol ochiq bo'lsa ham bosiladigan bo'ldi
+- Qulflash, ekranni o'chirish va uyqu endi ikki marta bosishni talab qiladi
+- Orol kursor shunchaki ustidan o'tganda ochilmaydi, bir lahza to'xtashi kerak
+
 ## [1.1.0] - 2026-11-15
 
 ### Qo'shildi

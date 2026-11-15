@@ -124,9 +124,16 @@ class MainFlutterWindow: NSPanel {
     let inside = rect.contains(p)
     if inside != hovering {
       hovering = inside
-      ignoresMouseEvents = !inside
       channel.invokeMethod("hover", arguments: inside)
     }
+    // Menyu qatori (notch'dan chap va o'ngdagi tasma) doim bosiladigan bo'lib qolsin:
+    // orol ochiq bo'lsa ham u yerdagi bosishlar orqadagi menyuga o'tadi.
+    let info = notchInfo()
+    let nw = CGFloat(info["width"] as? Double ?? 190)
+    let nh = CGFloat(info["height"] as? Double ?? 32)
+    let inMenuBar = p.y > f.maxY - nh && abs(p.x - f.midX) > nw / 2
+    let ignore = !inside || inMenuBar
+    if ignoresMouseEvents != ignore { ignoresMouseEvents = ignore }
   }
 
   // MARK: - Flutter chaqiruvlari
