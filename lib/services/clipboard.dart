@@ -35,6 +35,18 @@ class ClipboardStore {
   StreamSubscription<ClipEvent>? _sub;
 
   Future<void> init() async {
+    if (kDemo.isNotEmpty) {
+      // Demo rejim: haqiqiy tarix o'qilmaydi va saqlanmaydi
+      final now = DateTime.now();
+      items.value = [
+        ClipItem('https://github.com/Sheyxzad999/Dynamicisland', 'Safari', now.subtract(const Duration(minutes: 2))),
+        ClipItem('Ertaga 10:00 — jamoa bilan uchrashuv', 'Notes', now.subtract(const Duration(minutes: 9)), pinned: true),
+        ClipItem('#F0875A', 'Figma', now.subtract(const Duration(minutes: 24))),
+        ClipItem('Ўзбекистон Республикаси', 'Telegram', now.subtract(const Duration(hours: 1))),
+        ClipItem('flutter build macos --release', 'Terminal', now.subtract(const Duration(hours: 3))),
+      ];
+      return;
+    }
     final p = await SharedPreferences.getInstance();
     final raw = p.getString('clipboard');
     if (raw != null) {
@@ -73,6 +85,7 @@ class ClipboardStore {
   }
 
   Future<void> _save() async {
+    if (kDemo.isNotEmpty) return;
     final p = await SharedPreferences.getInstance();
     await p.setString('clipboard', jsonEncode(items.value.map((e) => e.toJson()).toList()));
   }

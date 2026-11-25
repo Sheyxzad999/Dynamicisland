@@ -1,5 +1,15 @@
 # O'zgarishlar tarixi
 
+## [1.2.2] - 2026-11-25
+
+### Tuzatildi
+- Yopiq holatda taymer vaqti ikki qatorga boʻlinib ketardi ("17:2 / 7") — qanot kengaytirildi
+- Sozlamalar boʻlimida pastdagi "Dasturdan chiqish" tugmasi qirqilib qolardi — orol balandligi oshirildi
+
+### Qoʻshildi
+- README: oʻzbekcha va inglizcha toʻliq qoʻllanma, har bir boʻlimning rasmlari, Mac'ga oʻrnatish va Windows haqida
+- Demo rejim (`--dart-define=OROL_DEMO=...`) endi haqiqiy kalendar, nusxalar va fayllarni oʻqimaydi
+
 ## [1.2.1] - 2026-11-25
 
 ### Tuzatildi

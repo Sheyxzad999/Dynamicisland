@@ -150,8 +150,12 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     _loadPrefs();
     native.glassSupported().then((v) => setState(() => glassNative = v));
     if (kDemo.isNotEmpty) {
-      expanded = true;
+      expanded = kDemo != 'compact' && kDemo != 'music';
       tab = int.tryParse(kDemo) ?? 0;
+      if (kDemo != 'music') {
+        timerTotal = const Duration(minutes: 25);
+        timerEnd = DateTime.now().add(const Duration(minutes: 17, seconds: 32));
+      }
       if (kDemo == 'cycle') {
         Timer.periodic(const Duration(seconds: 3), (_) => setState(() => tab = (tab + 1) % _tabs.length));
       }
@@ -165,6 +169,11 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     final p = await SharedPreferences.getInstance();
     showPrayer = p.getBool('showPrayer') ?? true;
     useGlass = p.getBool('useGlass') ?? true;
+    if (kDemo.isNotEmpty) {
+      shelf = ['/demo/Taqdimot.pdf', '/demo/Logotip.png', '/demo/Montaj.mov', '/demo/Shartnoma.docx', '/demo/Loyiha'];
+      if (mounted) setState(() {});
+      return;
+    }
     final saved = p.getStringList('shelf') ?? [];
     final ok = <String>[];
     for (final s in saved) {
@@ -178,6 +187,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   }
 
   Future<void> _saveShelf() async {
+    if (kDemo.isNotEmpty) return;
     final p = await SharedPreferences.getInstance();
     await p.setStringList('shelf', shelf);
   }
@@ -355,7 +365,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       alert != null && alert!.kind != AlertKind.charging;
 
   Size _targetSize(NotchInfo n) {
-    if (expanded || dragging) return Size(680, n.height + 220);
+    if (expanded || dragging) return Size(680, n.height + 238);
     if (_bannerAlert) return Size(n.width + 200, n.height + 58);
     switch (_compactMode) {
       case 'charging':
@@ -364,6 +374,9 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
         return Size(n.width, n.height);
       case 'privacy':
         return Size(n.width + 48, n.height);
+      case 'timer':
+        // "1:05:30" kabi vaqt bir qatorga sig'ishi uchun kengroq qanot
+        return Size(n.width + 150, n.height);
       default:
         return Size(n.width + 96, n.height);
     }
@@ -502,6 +515,9 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       case 'timer':
         left = Icon(timerPausedLeft != null ? Icons.pause_circle_filled : Icons.timer, color: kOrange, size: 18);
         right = Text(fmtClock(timerLeft),
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.visible,
             style: const TextStyle(color: kOrange, fontSize: 13, fontWeight: FontWeight.w600, fontFeatures: [FontFeature.tabularFigures()]));
       case 'music':
         left = Artwork(media: native.media.value, size: 22, radius: 6);
@@ -1137,7 +1153,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       ]),
       const Spacer(),
       Row(children: [
-        const Text('Dinamik Orol 1.2.1', style: TextStyle(color: Colors.white38, fontSize: 11)),
+        const Text('Dinamik Orol 1.2.2', style: TextStyle(color: Colors.white38, fontSize: 11)),
         const Spacer(),
         _pill('Dasturdan chiqish', const Color(0xFFFF453A), native.quit),
       ]),
