@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../i18n.dart';
 import '../native.dart';
 import '../services/clipboard.dart';
 import '../translit.dart';
@@ -40,24 +41,24 @@ class _ClipboardTabState extends State<ClipboardTab> {
       valueListenable: store.items,
       builder: (_, items, _) {
         if (items.isEmpty) {
-          return const Center(
+          return Center(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.content_paste_rounded, color: kDim, size: 32),
-              SizedBox(height: 6),
-              Text('Hali hech narsa nusxalanmagan', style: TextStyle(color: kDim, fontSize: 13)),
-              Text('Cmd+C bilan nusxalagan matnlaringiz shu yerda saqlanadi',
-                  style: TextStyle(color: Colors.white24, fontSize: 11)),
+              const Icon(Icons.content_paste_rounded, color: kDim, size: 32),
+              const SizedBox(height: 6),
+              Text(tr('Hali hech narsa nusxalanmagan', 'Nothing copied yet'), style: const TextStyle(color: kDim, fontSize: 13)),
+              Text(tr('Cmd+C bilan nusxalagan matnlaringiz shu yerda saqlanadi', 'Text you copy with Cmd+C is kept here'),
+                  style: const TextStyle(color: Colors.white24, fontSize: 11)),
             ]),
           );
         }
         return Column(children: [
           Row(children: [
-            Text('${items.length} ta yozuv', style: const TextStyle(color: kDim, fontSize: 12)),
+            Text(tr('${items.length} ta yozuv', '${items.length} items'), style: const TextStyle(color: kDim, fontSize: 12)),
             const Spacer(),
-            const Text('Bosing: nusxalash  ·  Aа: lotin↔kirill  ', style: TextStyle(color: Colors.white24, fontSize: 10)),
+            Text(tr('Bosing: nusxalash  ·  Aа: lotin↔kirill  ', 'Click: copy  ·  Aа: Latin↔Cyrillic  '), style: const TextStyle(color: Colors.white24, fontSize: 10)),
             Tap(
               onTap: store.clearUnpinned,
-              child: const Text('Tozalash', style: TextStyle(color: kRed, fontSize: 12)),
+              child: Text(tr('Tozalash', 'Clear'), style: const TextStyle(color: kRed, fontSize: 12)),
             ),
           ]),
           const SizedBox(height: 6),
@@ -88,13 +89,13 @@ class _ClipboardTabState extends State<ClipboardTab> {
             onTap: () => _copy(it.text),
             child: Row(children: [
               Expanded(
-                child: Text(copied ? 'Nusxalandi ✓' : oneLine,
+                child: Text(copied ? tr('Nusxalandi ✓', 'Copied ✓') : oneLine,
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: copied ? kGreen : Colors.white, fontSize: 12)),
               ),
               const SizedBox(width: 8),
               Text(
-                flash == translitKey ? 'O‘girildi ✓' : timeAgo(it.time),
+                flash == translitKey ? tr('Oʻgirildi ✓', 'Converted ✓') : timeAgo(it.time),
                 style: TextStyle(color: flash == translitKey ? kTeal : Colors.white30, fontSize: 10),
               ),
             ]),
@@ -102,7 +103,7 @@ class _ClipboardTabState extends State<ClipboardTab> {
         ),
         const SizedBox(width: 8),
         Tap(
-          tooltip: isCyrillic(it.text) ? 'Lotinga o‘girib nusxalash' : 'Kirillga o‘girib nusxalash',
+          tooltip: isCyrillic(it.text) ? tr('Lotinga oʻgirib nusxalash', 'Copy as Latin') : tr('Kirillga oʻgirib nusxalash', 'Copy as Cyrillic'),
           onTap: () => _copy(autoTranslit(it.text), key: translitKey),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
@@ -112,7 +113,7 @@ class _ClipboardTabState extends State<ClipboardTab> {
         ),
         const SizedBox(width: 6),
         Tap(
-          tooltip: it.pinned ? 'Qadashni olib tashlash' : 'Qadab qo‘yish',
+          tooltip: it.pinned ? tr('Qadashni olib tashlash', 'Unpin') : tr('Qadab qoʻyish', 'Pin'),
           onTap: () => store.togglePin(it),
           child: Icon(it.pinned ? Icons.push_pin : Icons.push_pin_outlined, size: 14, color: it.pinned ? kOrange : kDim),
         ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'i18n.dart';
+
 // Umumiy ranglar
 const kGreen = Color(0xFF34C759);
 const kOrange = Color(0xFFFF9F0A);
@@ -38,19 +40,19 @@ String fmtClock(Duration d) {
 
 String fmtLeft(Duration d) {
   final m = (d.inSeconds / 60).ceil();
-  if (m < 60) return '$m daq';
-  if (m < 60 * 24) return '${m ~/ 60} soat ${m % 60} daq';
-  return '${m ~/ (60 * 24)} kun';
+  if (m < 60) return tr('$m daq', '$m min');
+  if (m < 60 * 24) return tr('${m ~/ 60} soat ${m % 60} daq', '${m ~/ 60} h ${m % 60} min');
+  return tr('${m ~/ (60 * 24)} kun', '${m ~/ (60 * 24)} d');
 }
 
 String fmtTime(DateTime t) => '${two(t.hour)}:${two(t.minute)}';
 
 String timeAgo(DateTime t) {
   final d = DateTime.now().difference(t);
-  if (d.inSeconds < 60) return 'hozirgina';
-  if (d.inMinutes < 60) return '${d.inMinutes} daq oldin';
-  if (d.inHours < 24) return '${d.inHours} soat oldin';
-  return '${d.inDays} kun oldin';
+  if (d.inSeconds < 60) return tr('hozirgina', 'just now');
+  if (d.inMinutes < 60) return tr('${d.inMinutes} daq oldin', '${d.inMinutes} min ago');
+  if (d.inHours < 24) return tr('${d.inHours} soat oldin', '${d.inHours} h ago');
+  return tr('${d.inDays} kun oldin', '${d.inDays} d ago');
 }
 
 const uzMonths = [
@@ -59,16 +61,29 @@ const uzMonths = [
 ];
 const uzWeekdays = ['dushanba', 'seshanba', 'chorshanba', 'payshanba', 'juma', 'shanba', 'yakshanba'];
 const uzWeekdaysShort = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
+const _enMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const _enWeekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const _enWeekdaysShort = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+/// "25-noyabr" / "Nov 25"
+String dateShort(DateTime d) => isEn ? '${_enMonths[d.month - 1]} ${d.day}' : '${d.day}-${uzMonths[d.month - 1]}';
+
+/// "25-noyabr, chorshanba" / "Wednesday, Nov 25"
+String dateLong(DateTime d) =>
+    isEn ? '${_enWeekdays[d.weekday - 1]}, ${dateShort(d)}' : '${dateShort(d)}, ${uzWeekdays[d.weekday - 1]}';
+
+/// "Du" / "Mo"
+String weekdayShort(DateTime d) => isEn ? _enWeekdaysShort[d.weekday - 1] : uzWeekdaysShort[d.weekday - 1];
 
 String dayLabel(DateTime d) {
   final now = DateTime.now();
   final a = DateTime(now.year, now.month, now.day);
   final b = DateTime(d.year, d.month, d.day);
   final diff = b.difference(a).inDays;
-  if (diff == 0) return 'Bugun';
-  if (diff == 1) return 'Ertaga';
-  if (diff == -1) return 'Kecha';
-  return '${d.day}-${uzMonths[d.month - 1]}, ${uzWeekdays[d.weekday - 1]}';
+  if (diff == 0) return tr('Bugun', 'Today');
+  if (diff == 1) return tr('Ertaga', 'Tomorrow');
+  if (diff == -1) return tr('Kecha', 'Yesterday');
+  return dateLong(d);
 }
 
 class Pill extends StatelessWidget {

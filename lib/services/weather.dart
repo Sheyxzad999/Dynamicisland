@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../i18n.dart';
 import '../prayer.dart';
 
 class DayForecast {
@@ -27,16 +28,16 @@ class Weather {
 
 /// WMO ob-havo kodi -> o'zbekcha tavsif.
 String weatherText(int c) {
-  if (c == 0) return 'Ochiq osmon';
-  if (c <= 2) return 'Qisman bulutli';
-  if (c == 3) return 'Bulutli';
-  if (c <= 48) return 'Tuman';
-  if (c <= 57) return 'Shivalama yomg‘ir';
-  if (c <= 67) return 'Yomg‘ir';
-  if (c <= 77) return 'Qor';
-  if (c <= 82) return 'Jala';
-  if (c <= 86) return 'Qor yog‘ishi';
-  return 'Momaqaldiroq';
+  if (c == 0) return tr('Ochiq osmon', 'Clear sky');
+  if (c <= 2) return tr('Qisman bulutli', 'Partly cloudy');
+  if (c == 3) return tr('Bulutli', 'Cloudy');
+  if (c <= 48) return tr('Tuman', 'Fog');
+  if (c <= 57) return tr('Shivalama yomgʻir', 'Drizzle');
+  if (c <= 67) return tr('Yomgʻir', 'Rain');
+  if (c <= 77) return tr('Qor', 'Snow');
+  if (c <= 82) return tr('Jala', 'Showers');
+  if (c <= 86) return tr('Qor yogʻishi', 'Snow showers');
+  return tr('Momaqaldiroq', 'Thunderstorm');
 }
 
 IconData weatherIcon(int c, {bool day = true}) {

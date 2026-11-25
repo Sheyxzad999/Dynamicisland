@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/weather.dart';
+import '../i18n.dart';
 import '../ui.dart';
 
 class WeatherTab extends StatelessWidget {
@@ -13,9 +14,9 @@ class WeatherTab extends StatelessWidget {
       valueListenable: WeatherService.instance.current,
       builder: (_, w, _) {
         if (w == null) {
-          return const Center(
-            child: Text('Ob-havo yuklanmoqda...\nInternet aloqasini tekshiring',
-                textAlign: TextAlign.center, style: TextStyle(color: kDim, fontSize: 12)),
+          return Center(
+            child: Text(tr('Ob-havo yuklanmoqda...\nInternet aloqasini tekshiring', 'Loading weather…\nCheck your internet connection'),
+                textAlign: TextAlign.center, style: const TextStyle(color: kDim, fontSize: 12)),
           );
         }
         return Row(children: [
@@ -29,7 +30,7 @@ class WeatherTab extends StatelessWidget {
                   style: const TextStyle(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w300, height: 1.1)),
               Text(weatherText(w.code), style: const TextStyle(color: Colors.white, fontSize: 13)),
               const SizedBox(height: 4),
-              Text('His qilinadi ${w.feels.round()}°  ·  💧 ${w.humidity}%  ·  💨 ${w.wind.round()} km/s',
+              Text('${tr('His qilinadi', 'Feels like')} ${w.feels.round()}°  ·  💧 ${w.humidity}%  ·  💨 ${w.wind.round()} ${tr('km/s', 'km/h')}',
                   style: const TextStyle(color: kDim, fontSize: 10.5)),
             ]),
           ),
@@ -59,7 +60,7 @@ class WeatherTab extends StatelessWidget {
 
   String _dayName(DateTime d) {
     final now = DateTime.now();
-    if (d.year == now.year && d.month == now.month && d.day == now.day) return 'Bugun';
-    return uzWeekdaysShort[d.weekday - 1];
+    if (d.year == now.year && d.month == now.month && d.day == now.day) return tr('Bugun', 'Today');
+    return weekdayShort(d);
   }
 }

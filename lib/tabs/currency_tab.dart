@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../i18n.dart';
 import '../native.dart';
 import '../services/currency.dart';
 import '../ui.dart';
@@ -51,15 +52,15 @@ class _CurrencyTabState extends State<CurrencyTab> {
       valueListenable: svc.rates,
       builder: (_, rates, _) {
         if (rates.isEmpty) {
-          return const Center(
-            child: Text('Kurslar yuklanmoqda...\nInternet aloqasini tekshiring',
-                textAlign: TextAlign.center, style: TextStyle(color: kDim, fontSize: 12)),
+          return Center(
+            child: Text(tr('Kurslar yuklanmoqda...\nInternet aloqasini tekshiring', 'Loading rates…\nCheck your internet connection'),
+                textAlign: TextAlign.center, style: const TextStyle(color: kDim, fontSize: 12)),
           );
         }
         final rate = svc.byCode(code) ?? rates.first;
         final result = toSom ? amount * rate.rate : (rate.rate > 0 ? amount / rate.rate : 0.0);
         final resultText = toSom
-            ? '${formatMoney(result, decimals: 0)} so‘m'
+            ? '${formatMoney(result, decimals: 0)} ${tr('soʻm', 'UZS')}'
             : '${formatMoney(result)} ${rate.code}';
         return Row(children: [
           // Kalkulyator
@@ -85,13 +86,13 @@ class _CurrencyTabState extends State<CurrencyTab> {
                           decoration: const InputDecoration(border: InputBorder.none, isCollapsed: true),
                         ),
                       ),
-                      Text(toSom ? rate.code : 'so‘m', style: const TextStyle(color: kDim, fontSize: 13)),
+                      Text(toSom ? rate.code : tr('soʻm', 'UZS'), style: const TextStyle(color: kDim, fontSize: 13)),
                     ]),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Tap(
-                  tooltip: 'Yo‘nalishni almashtirish',
+                  tooltip: tr('Yoʻnalishni almashtirish', 'Swap direction'),
                   onTap: () => setState(() => toSom = !toSom),
                   child: Container(
                     width: 40, height: 40,
@@ -102,8 +103,8 @@ class _CurrencyTabState extends State<CurrencyTab> {
               ]),
               const SizedBox(height: 10),
               Tap(
-                tooltip: 'Nusxalash',
-                onTap: () => Native.instance.copyText(resultText.replaceAll(' so‘m', '').replaceAll(' ${rate.code}', '')),
+                tooltip: tr('Nusxalash', 'Copy'),
+                onTap: () => Native.instance.copyText(resultText.replaceAll(' ${tr('soʻm', 'UZS')}', '').replaceAll(' ${rate.code}', '')),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
@@ -111,7 +112,7 @@ class _CurrencyTabState extends State<CurrencyTab> {
                       style: const TextStyle(color: kGreen, fontSize: 24, fontWeight: FontWeight.w700)),
                 ),
               ),
-              Text('1 ${rate.code} = ${formatMoney(rate.rate)} so‘m  ·  Markaziy bank, ${svc.date.value}',
+              Text('1 ${rate.code} = ${formatMoney(rate.rate)} ${tr('soʻm', 'UZS')}  ·  ${tr('Markaziy bank', 'Central Bank')}, ${svc.date.value}',
                   style: const TextStyle(color: kDim, fontSize: 11)),
               const Spacer(),
               Wrap(spacing: 5, runSpacing: 5, children: [

@@ -271,7 +271,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     // Taymer tugadimi?
     if (timerEnd != null && now.isAfter(timerEnd!)) {
       timerEnd = null;
-      alert = IslandAlert(AlertKind.timerDone, 'Taymer tugadi', fmtClock(timerTotal), const Duration(seconds: 12));
+      alert = IslandAlert(AlertKind.timerDone, tr('Taymer tugadi', 'Timer finished'), fmtClock(timerTotal), const Duration(seconds: 12));
       native.playSound('Glass');
       Timer(const Duration(milliseconds: 900), () => native.playSound('Glass'));
     }
@@ -285,7 +285,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
         final key = '${p.name}-${p.time.day}';
         if (!diff.isNegative && diff.inSeconds < 60 && _lastPrayerAlert != key) {
           _lastPrayerAlert = key;
-          alert = IslandAlert(AlertKind.prayer, '${p.name} vaqti kirdi', fmtTime(p.time), const Duration(seconds: 15));
+          alert = IslandAlert(AlertKind.prayer, tr('${prayerName(p.name)} vaqti kirdi', 'It is time for ${prayerName(p.name)}'), fmtTime(p.time), const Duration(seconds: 15));
           native.playSound('Submarine');
         }
       }
@@ -304,7 +304,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       final key = '${e.title}-${e.start.millisecondsSinceEpoch}';
       if (!diff.isNegative && diff.inSeconds < 60 && _lastEventAlert != key) {
         _lastEventAlert = key;
-        alert = IslandAlert(AlertKind.event, e.title, 'Hozir boshlanadi · ${fmtTime(e.start)}', const Duration(seconds: 15));
+        alert = IslandAlert(AlertKind.event, e.title, tr('Hozir boshlanadi · ${fmtTime(e.start)}', 'Starting now · ${fmtTime(e.start)}'), const Duration(seconds: 15));
         native.playSound('Ping');
       }
     }
@@ -533,7 +533,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     Widget left, right;
     switch (mode) {
       case 'charging':
-        left = const Text('Zaryadlanmoqda', style: TextStyle(color: kGreen, fontSize: 13, fontWeight: FontWeight.w600));
+        left = Text(tr('Zaryadlanmoqda', 'Charging'), style: const TextStyle(color: kGreen, fontSize: 13, fontWeight: FontWeight.w600));
         right = Row(mainAxisSize: MainAxisSize.min, children: [
           Text('${native.battery.value.percent}%',
               style: const TextStyle(color: kGreen, fontSize: 13, fontWeight: FontWeight.w600)),
@@ -598,8 +598,8 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   /// Mikrofon (to'q sariq) yoki kamera (yashil) ishlayotganini bildiradi.
   Widget _privacyDots() {
     final dots = <Widget>[
-      if (native.mic.value) _dot(kOrange, 'Mikrofon ishlatilmoqda'),
-      if (native.camera.value) _dot(kGreen, 'Kamera ishlatilmoqda'),
+      if (native.mic.value) _dot(kOrange, tr('Mikrofon ishlatilmoqda', 'Microphone in use')),
+      if (native.camera.value) _dot(kGreen, tr('Kamera ishlatilmoqda', 'Camera in use')),
     ];
     if (dots.isEmpty) return const SizedBox();
     return Padding(padding: const EdgeInsets.only(left: 6), child: Row(mainAxisSize: MainAxisSize.min, children: dots));
@@ -667,12 +667,12 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
         (Icons.settings_outlined, tr('Sozlamalar', 'Settings')),
       ];
 
-  static const _actions = [
-    (Icons.lock_rounded, 'Ekranni qulflash', 'lock'),
-    (Icons.desktop_access_disabled_rounded, 'Ekranni o‘chirish', 'display'),
-    (Icons.bedtime_rounded, 'Uyqu rejimi', 'sleep'),
-    (Icons.screenshot_monitor_rounded, 'Ekran rasmi', 'screenshot'),
-  ];
+  List<(IconData, String, String)> get _actions => [
+        (Icons.lock_rounded, tr('Ekranni qulflash', 'Lock screen'), 'lock'),
+        (Icons.desktop_access_disabled_rounded, tr('Ekranni oʻchirish', 'Display off'), 'display'),
+        (Icons.bedtime_rounded, tr('Uyqu rejimi', 'Sleep'), 'sleep'),
+        (Icons.screenshot_monitor_rounded, tr('Ekran rasmi', 'Screenshot'), 'screenshot'),
+      ];
 
   /// Qulflash/uyqu kabi amallar ikki bosishni talab qiladi (tasodifan bosilmasligi uchun).
   Widget _actionButton(IconData icon, String label, String id) {
@@ -707,7 +707,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
             Icon(icon, size: 15, color: armed ? kRed : kDim),
             if (armed) ...[
               const SizedBox(width: 5),
-              const Text('Yana bosing', style: TextStyle(color: kRed, fontSize: 11, fontWeight: FontWeight.w600)),
+              Text(tr('Yana bosing', 'Tap again'), style: const TextStyle(color: kRed, fontSize: 11, fontWeight: FontWeight.w600)),
             ],
           ]),
         ),
@@ -730,7 +730,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
               padding: const EdgeInsets.only(left: 18),
               child: Row(children: [
                 Text(
-                  '${fmtTime(DateTime.now())}  ·  ${DateTime.now().day}-${uzMonths[DateTime.now().month - 1]}',
+                  '${fmtTime(DateTime.now())}  ·  ${dateShort(DateTime.now())}',
                   style: const TextStyle(color: kDim, fontSize: 12),
                 ),
               ]),
@@ -923,13 +923,14 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
           child: const Icon(Icons.graphic_eq_rounded, color: kDim, size: 26),
         ),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Hech narsa ijro etilmayapti',
-                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-            SizedBox(height: 2),
-            Text('Tugmalar istalgan joydagi mediani boshqaradi:\nYouTube, Spotify, Telegram, VLC…',
-                style: TextStyle(color: kDim, fontSize: 11.5, height: 1.35)),
+            Text(tr('Hech narsa ijro etilmayapti', 'Nothing is playing'),
+                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 2),
+            Text(tr('Tugmalar istalgan joydagi mediani boshqaradi:\nYouTube, Spotify, Telegram, VLC…',
+                    'These buttons control media playing anywhere:\nYouTube, Spotify, Telegram, VLC…'),
+                style: const TextStyle(color: kDim, fontSize: 11.5, height: 1.35)),
           ]),
         ),
       ]),
@@ -951,11 +952,11 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: glassTile(radius: 10, tint: kOrange, active: true),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.lock_open_rounded, size: 13, color: kOrange),
-              SizedBox(width: 6),
-              Text('Istalgan ilovani boshqarish uchun ruxsat bering',
-                  style: TextStyle(color: kOrange, fontSize: 11, fontWeight: FontWeight.w600)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.lock_open_rounded, size: 13, color: kOrange),
+              const SizedBox(width: 6),
+              Text(tr('Istalgan ilovani boshqarish uchun ruxsat bering', 'Allow access to control any app'),
+                  style: const TextStyle(color: kOrange, fontSize: 11, fontWeight: FontWeight.w600)),
             ]),
           ),
         ),
@@ -968,8 +969,10 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   }
 
   String _jsHint(String browsers) => browsers.contains('Safari')
-      ? 'Video nomini koʻrish uchun: Safari → Sozlamalar → Developer → Allow JavaScript from Apple Events'
-      : 'Brauzerdagi video nomini koʻrish: $browsers → View → Developer → Allow JavaScript from Apple Events';
+      ? tr('Video nomini koʻrish uchun: Safari → Sozlamalar → Developer → Allow JavaScript from Apple Events',
+          'To see video titles: Safari → Settings → Developer → Allow JavaScript from Apple Events')
+      : tr('Brauzerdagi video nomini koʻrish: $browsers → View → Developer → Allow JavaScript from Apple Events',
+          'To see video titles: $browsers → View → Developer → Allow JavaScript from Apple Events');
 
   void _checkMediaKeys() {
     native.mediaKeysAllowed().then((v) {
@@ -986,7 +989,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     final now = DateTime.now();
     final rows = <Widget>[
       if (showPrayer && next != null)
-        _infoRow(Icons.mosque, kTeal, '${next.name} · ${fmtTime(next.time)}', '${fmtLeft(next.time.difference(now))} qoldi',
+        _infoRow(Icons.mosque, kTeal, '${prayerName(next.name)} · ${fmtTime(next.time)}', tr('${fmtLeft(next.time.difference(now))} qoldi', '${fmtLeft(next.time.difference(now))} left'),
             onTap: () => setState(() => tab = 7)),
       if (ev != null)
         _infoRow(Icons.event_rounded, kPurple, ev.title,
@@ -994,13 +997,13 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
             onTap: () => setState(() => tab = 6)),
       if (w != null)
         _infoRow(weatherIcon(w.code, day: w.isDay), weatherColor(w.code, day: w.isDay), '${w.temp.round()}° · ${weatherText(w.code)}',
-            '${w.city}, his qilinadi ${w.feels.round()}°', onTap: () => setState(() => tab = 5)),
+            tr('${w.city}, his qilinadi ${w.feels.round()}°', '${w.city}, feels like ${w.feels.round()}°'), onTap: () => setState(() => tab = 5)),
       if (usd != null)
-        _infoRow(Icons.attach_money_rounded, kGreen, '1 \$ = ${formatMoney(usd.rate)} so‘m',
-            '${usd.diff >= 0 ? '▲' : '▼'} ${formatMoney(usd.diff.abs())} · Markaziy bank', onTap: () => setState(() => tab = 4)),
+        _infoRow(Icons.attach_money_rounded, kGreen, tr('1 \$ = ${formatMoney(usd.rate)} so‘m', '1 \$ = ${formatMoney(usd.rate)} UZS'),
+            '${usd.diff >= 0 ? '▲' : '▼'} ${formatMoney(usd.diff.abs())} · ${tr('Markaziy bank', 'Central Bank')}', onTap: () => setState(() => tab = 4)),
       if (b.available)
         _infoRow(b.plugged ? Icons.battery_charging_full_rounded : Icons.battery_std_rounded,
-            b.plugged ? kGreen : (b.percent <= 20 ? kRed : Colors.white), 'Batareya ${b.percent}%', _batteryText(b)),
+            b.plugged ? kGreen : (b.percent <= 20 ? kRed : Colors.white), tr('Batareya ${b.percent}%', 'Battery ${b.percent}%'), _batteryText(b)),
     ];
     return ListView(padding: EdgeInsets.zero, children: rows);
   }
@@ -1025,12 +1028,12 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
 
   String _batteryText(BatteryInfo b) {
     if (b.plugged) {
-      if (b.percent >= 100 || !b.charging) return 'Quvvat manbaiga ulangan';
-      if (b.minutesToFull > 0) return "To'lishiga ${fmtLeft(Duration(minutes: b.minutesToFull))}";
-      return 'Zaryadlanmoqda';
+      if (b.percent >= 100 || !b.charging) return tr('Quvvat manbaiga ulangan', 'Connected to power');
+      if (b.minutesToFull > 0) return tr("To'lishiga ${fmtLeft(Duration(minutes: b.minutesToFull))}", "${fmtLeft(Duration(minutes: b.minutesToFull))} until full");
+      return tr('Zaryadlanmoqda', 'Charging');
     }
-    if (b.minutesToEmpty > 0) return "Taxminan ${fmtLeft(Duration(minutes: b.minutesToEmpty))} yetadi";
-    return 'Batareyadan ishlamoqda';
+    if (b.minutesToEmpty > 0) return tr("Taxminan ${fmtLeft(Duration(minutes: b.minutesToEmpty))} yetadi", "About ${fmtLeft(Duration(minutes: b.minutesToEmpty))} left");
+    return tr('Batareyadan ishlamoqda', 'On battery');
   }
 
   // --- Taymer ---------------------------------------------------------------
@@ -1058,16 +1061,16 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
         const SizedBox(width: 28),
         Expanded(
           child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(timerPausedLeft != null ? "To'xtatilgan" : 'Taymer ishlamoqda',
+            Text(timerPausedLeft != null ? tr("To'xtatilgan", 'Paused') : tr('Taymer ishlamoqda', 'Timer running'),
                 style: const TextStyle(color: kOrange, fontSize: 14, fontWeight: FontWeight.w600)),
-            Text('Jami: ${fmtClock(timerTotal)}', style: const TextStyle(color: kDim, fontSize: 12)),
+            Text(tr('Jami: ${fmtClock(timerTotal)}', 'Total: ${fmtClock(timerTotal)}'), style: const TextStyle(color: kDim, fontSize: 12)),
             const SizedBox(height: 14),
             Row(children: [
-              _pill(timerPausedLeft != null ? 'Davom etish' : 'Pauza', kOrange, pauseResumeTimer),
+              _pill(timerPausedLeft != null ? tr('Davom etish', 'Resume') : tr('Pauza', 'Pause'), kOrange, pauseResumeTimer),
               const SizedBox(width: 8),
-              _pill('+1 daq', Colors.white, addMinute),
+              _pill(tr('+1 daq', '+1 min'), Colors.white, addMinute),
               const SizedBox(width: 8),
-              _pill("To'xtatish", const Color(0xFFFF453A), stopTimer),
+              _pill(tr("To'xtatish", 'Stop'), const Color(0xFFFF453A), stopTimer),
             ]),
           ]),
         ),
@@ -1075,7 +1078,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     }
     const presets = [1, 3, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Necha daqiqaga?', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+      Text(tr('Necha daqiqaga?', 'How long?'), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
       const SizedBox(height: 12),
       Wrap(spacing: 8, runSpacing: 8, children: [
         for (final m in presets)
@@ -1085,7 +1088,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
               width: 76, height: 40,
               alignment: Alignment.center,
               decoration: glassTile(radius: 12),
-              child: Text(m < 60 ? '$m daq' : '${m ~/ 60}${m % 60 == 0 ? '' : ',5'} soat',
+              child: Text(m < 60 ? tr('$m daq', '$m min') : tr('${m ~/ 60}${m % 60 == 0 ? '' : ',5'} soat', '${m ~/ 60}${m % 60 == 0 ? '' : '.5'} h'),
                   style: const TextStyle(color: kOrange, fontWeight: FontWeight.w600, fontSize: 13)),
             ),
           ),
@@ -1107,26 +1110,26 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.move_to_inbox_rounded, size: 34, color: dragging ? kGreen : kDim),
             const SizedBox(height: 6),
-            Text(dragging ? "Qo'yib yuboring" : "Fayllarni notch ustiga sudrab tashlang",
+            Text(dragging ? tr("Qo'yib yuboring", 'Drop it') : tr("Fayllarni notch ustiga sudrab tashlang", 'Drag files onto the notch'),
                 style: TextStyle(color: dragging ? kGreen : kDim, fontSize: 13)),
             if (!dragging)
-              const Text("Ular shu yerda saqlanib turadi", style: TextStyle(color: Colors.white24, fontSize: 11)),
+              Text(tr("Ular shu yerda saqlanib turadi", 'They stay here until you remove them'), style: const TextStyle(color: Colors.white24, fontSize: 11)),
           ]),
         ),
       );
     }
     return Column(children: [
       Row(children: [
-        Text('${shelf.length} ta fayl', style: const TextStyle(color: kDim, fontSize: 12)),
+        Text(tr('${shelf.length} ta fayl', '${shelf.length} files'), style: const TextStyle(color: kDim, fontSize: 12)),
         const Spacer(),
-        const Text('Bosing: ochish · O‘ng tugma: Finder’da ko‘rsatish  ',
-            style: TextStyle(color: Colors.white24, fontSize: 10)),
+        Text(tr('Bosing: ochish · Oʻng tugma: Finder’da koʻrsatish  ', 'Click: open · Right-click: show in Finder  '),
+            style: const TextStyle(color: Colors.white24, fontSize: 10)),
         GestureDetector(
           onTap: () {
             setState(() => shelf.clear());
             _saveShelf();
           },
-          child: const Text('Tozalash', style: TextStyle(color: Color(0xFFFF453A), fontSize: 12)),
+          child: Text(tr('Tozalash', 'Clear'), style: const TextStyle(color: Color(0xFFFF453A), fontSize: 12)),
         ),
       ]),
       const SizedBox(height: 8),
@@ -1197,9 +1200,9 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   Widget _prayerTab() {
     final list = prayers.today.value;
     if (list.isEmpty) {
-      return const Center(
-        child: Text("Namoz vaqtlari yuklanmoqda...\nInternet aloqasini tekshiring",
-            textAlign: TextAlign.center, style: TextStyle(color: kDim, fontSize: 12)),
+      return Center(
+        child: Text(tr("Namoz vaqtlari yuklanmoqda...\nInternet aloqasini tekshiring", 'Loading prayer times…\nCheck your internet connection'),
+            textAlign: TextAlign.center, style: const TextStyle(color: kDim, fontSize: 12)),
       );
     }
     final next = prayers.next();
@@ -1208,7 +1211,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       Row(children: [
         Text(prayers.cityName.value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
         const SizedBox(width: 8),
-        Text('${now.day}-${uzMonths[now.month - 1]}, ${uzWeekdays[now.weekday - 1]}',
+        Text(dateLong(now),
             style: const TextStyle(color: kDim, fontSize: 12)),
       ]),
       const SizedBox(height: 10),
@@ -1223,7 +1226,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
                     tint: next?.name == p.name && next?.time == p.time ? kTeal : null,
                     active: next?.name == p.name && next?.time == p.time),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(p.name, style: TextStyle(color: p.time.isBefore(now) ? kDim : Colors.white, fontSize: 12)),
+                  Text(prayerName(p.name), style: TextStyle(color: p.time.isBefore(now) ? kDim : Colors.white, fontSize: 12)),
                   const SizedBox(height: 4),
                   Text(fmtTime(p.time),
                       style: TextStyle(
@@ -1241,7 +1244,25 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
 
   Widget _settingsTab() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Shahar (namoz vaqtlari uchun)', style: TextStyle(color: kDim, fontSize: 11)),
+      Row(children: [
+        Text(tr('Shahar (namoz vaqtlari uchun)', 'City (for prayer times)'), style: const TextStyle(color: kDim, fontSize: 11)),
+        const Spacer(),
+        Text(tr('Til', 'Language'), style: const TextStyle(color: kDim, fontSize: 11)),
+        const SizedBox(width: 6),
+        for (final (code, label) in const [('uz', 'Oʻzbekcha'), ('en', 'English')])
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Tap(
+              onTap: () => setLang(code),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: glassTile(radius: 9, tint: appLang.value == code ? kTeal : null, active: appLang.value == code),
+                child: Text(label,
+                    style: TextStyle(color: appLang.value == code ? kTeal : Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ),
+      ]),
       const SizedBox(height: 6),
       SizedBox(
         height: 28,
@@ -1264,24 +1285,26 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
         ]),
       ),
       const SizedBox(height: 10),
-      _toggle(glassNative ? 'Liquid Glass ko‘rinishi' : 'Shaffof (shisha) ko‘rinish', useGlass, (v) async {
-        setState(() => useGlass = v);
-        final p = await SharedPreferences.getInstance();
-        await p.setBool('useGlass', v);
-      }),
-      const SizedBox(height: 8),
       Row(children: [
         Expanded(
-          child: _toggle('Kompyuter yonganda ochilsin', launchAtLogin, (v) async {
+          child: _toggle('Liquid Glass', useGlass, (v) async {
+            setState(() => useGlass = v);
+            final p = await SharedPreferences.getInstance();
+            await p.setBool('useGlass', v);
+          }),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _toggle(tr('Avto ishga tushish', 'Launch at login'), launchAtLogin, (v) async {
             try {
               final r = await native.setLaunchAtLogin(v);
               setState(() => launchAtLogin = r);
             } catch (_) {}
           }),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
-          child: _toggle("Namoz vaqtlarini ko'rsatish", showPrayer, (v) async {
+          child: _toggle(tr('Namoz vaqtlari', 'Prayer times'), showPrayer, (v) async {
             setState(() => showPrayer = v);
             final p = await SharedPreferences.getInstance();
             await p.setBool('showPrayer', v);
@@ -1292,7 +1315,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       Row(children: [
         const Text('Dinamik Orol 1.2.2', style: TextStyle(color: Colors.white38, fontSize: 11)),
         const Spacer(),
-        _pill('Dasturdan chiqish', const Color(0xFFFF453A), native.quit),
+        _pill(tr('Dasturdan chiqish', 'Quit'), const Color(0xFFFF453A), native.quit),
       ]),
     ]);
   }

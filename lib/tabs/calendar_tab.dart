@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../i18n.dart';
 import '../native.dart';
 import '../services/calendar.dart';
 import '../ui.dart';
@@ -20,13 +21,14 @@ class CalendarTab extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 status == 'denied'
-                    ? 'Kalendarga ruxsat berilmagan.\nTizim sozlamalari → Maxfiylik → Kalendarlar bo‘limidan yoqing'
-                    : 'Uchrashuvlaringizni ko‘rish uchun kalendarga ruxsat bering',
+                    ? tr('Kalendarga ruxsat berilmagan.\nTizim sozlamalari → Maxfiylik → Kalendarlar boʻlimidan yoqing',
+                        'Calendar access is off.\nTurn it on in System Settings → Privacy → Calendars')
+                    : tr('Uchrashuvlaringizni koʻrish uchun kalendarga ruxsat bering', 'Allow calendar access to see your meetings'),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: kDim, fontSize: 12),
               ),
               const SizedBox(height: 10),
-              if (status != 'denied') Pill('Ruxsat berish', kPurple, svc.requestAccess, icon: Icons.lock_open_rounded),
+              if (status != 'denied') Pill(tr('Ruxsat berish', 'Allow access'), kPurple, svc.requestAccess, icon: Icons.lock_open_rounded),
             ]),
           );
         }
@@ -40,9 +42,9 @@ class CalendarTab extends StatelessWidget {
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.event_available_rounded, color: kGreen, size: 32),
                   const SizedBox(height: 6),
-                  const Text('Yaqin 3 kunda uchrashuvlar yo‘q', style: TextStyle(color: kDim, fontSize: 13)),
+                  Text(tr('Yaqin 3 kunda uchrashuvlar yoʻq', 'No meetings in the next 3 days'), style: const TextStyle(color: kDim, fontSize: 13)),
                   const SizedBox(height: 10),
-                  Pill('Kalendarni ochish', kPurple, Native.instance.openCalendar),
+                  Pill(tr('Kalendarni ochish', 'Open Calendar'), kPurple, Native.instance.openCalendar),
                 ]),
               );
             }
@@ -63,7 +65,7 @@ class CalendarTab extends StatelessWidget {
               Expanded(child: ListView(children: rows)),
               const SizedBox(width: 10),
               Tap(
-                tooltip: 'Kalendarni ochish',
+                tooltip: tr('Kalendarni ochish', 'Open Calendar'),
                 onTap: Native.instance.openCalendar,
                 child: const Icon(Icons.open_in_new_rounded, size: 16, color: kDim),
               ),
@@ -90,7 +92,7 @@ class CalendarTab extends StatelessWidget {
                 style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
             Text(
               [
-                e.allDay ? 'Kun bo‘yi' : '${fmtTime(e.start)} – ${fmtTime(e.end)}',
+                e.allDay ? tr('Kun boʻyi', 'All day') : '${fmtTime(e.start)} – ${fmtTime(e.end)}',
                 if (e.location.isNotEmpty) e.location,
               ].join('  ·  '),
               maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -100,7 +102,7 @@ class CalendarTab extends StatelessWidget {
         ),
         if (!e.allDay)
           Text(
-            live ? 'Hozir' : (e.start.difference(now).inHours < 24 ? '${fmtLeft(e.start.difference(now))}dan keyin' : ''),
+            live ? tr('Hozir', 'Now') : (e.start.difference(now).inHours < 24 ? tr('${fmtLeft(e.start.difference(now))}dan keyin', 'in ${fmtLeft(e.start.difference(now))}') : ''),
             style: TextStyle(color: live ? color : kDim, fontSize: 10.5),
           ),
       ]),

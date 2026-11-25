@@ -19,3 +19,11 @@ Future<void> setLang(String lang) async {
   final p = await SharedPreferences.getInstance();
   await p.setString('lang', lang);
 }
+
+const _prayerEn = {
+  'Bomdod': 'Fajr', 'Quyosh': 'Sunrise', 'Peshin': 'Dhuhr',
+  'Asr': 'Asr', 'Shom': 'Maghrib', 'Xufton': 'Isha',
+};
+
+/// Namoz nomi joriy tilda (ichki kalit — oʻzbekcha nom).
+String prayerName(String uz) => isEn ? (_prayerEn[uz] ?? uz) : uz;
