@@ -1,5 +1,11 @@
 # O'zgarishlar tarixi
 
+## [1.2.1] - 2026-11-25
+
+### Tuzatildi
+- Liquid Glass yoqilganda orol ichidagi tugmalar (bo'limlar, taymer, sozlamalar) bosilmasdi —
+  shisha qatlami sichqoncha bosishlarini o'ziga olayotgan edi. Endi shisha faqat bezak qatlam
+
 ## [1.2.0] - 2026-11-25
 
 ### Qo'shildi

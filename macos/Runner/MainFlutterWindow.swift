@@ -36,10 +36,7 @@ class MainFlutterWindow: NSPanel {
   override func awakeFromNib() {
     let vc = FlutterViewController()
     vc.backgroundColor = .clear
-    // Flutter ko'rinishi ortida Liquid Glass qatlami turadi
-    let root = GlassRootController(flutter: vc, size: NSSize(width: winW, height: winH))
-    glassView = root.glass
-    contentViewController = root
+    contentViewController = vc
     RegisterGeneratedPlugins(registry: vc)
 
     styleMask = [.borderless, .nonactivatingPanel, .fullSizeContentView]
@@ -59,6 +56,7 @@ class MainFlutterWindow: NSPanel {
     }
 
     positionWindow()
+    installGlass()
     NotificationCenter.default.addObserver(
       self, selector: #selector(screensChanged),
       name: NSApplication.didChangeScreenParametersNotification, object: nil)
@@ -161,7 +159,7 @@ class MainFlutterWindow: NSPanel {
         visible: args["visible"] as? Bool ?? false)
       result(nil)
     case "glassSupported":
-      result(GlassRootController.liquidGlassAvailable)
+      result(GlassFactory.liquidGlassAvailable)
     case "getBattery":
       result(batteryInfo())
     case "media":
@@ -234,6 +232,17 @@ class MainFlutterWindow: NSPanel {
 
   // MARK: - Liquid Glass
 
+  /// Shisha qatlami Flutter ko'rinishining ortiga, oyna ramkasiga qo'yiladi.
+  /// Flutter'ning o'zi (va uning sichqoncha hodisalari) o'zgarishsiz qoladi.
+  private func installGlass() {
+    guard glassView == nil, let content = contentView, let frameView = content.superview else { return }
+    let g = GlassFactory.makeGlass()
+    g.alphaValue = 0
+    g.frame = .zero
+    frameView.addSubview(g, positioned: .below, relativeTo: content)
+    glassView = g
+  }
+
   /// Shisha qatlamini orolning hozirgi (animatsiyadagi) shakliga moslaydi.
   private func updateGlass(width: CGFloat, height: CGFloat, radius: CGFloat, visible: Bool) {
     guard let g = glassView, let host = g.superview else { return }
@@ -242,7 +251,7 @@ class MainFlutterWindow: NSPanel {
     // shunda faqat pastki burchaklar yumaloq ko'rinadi (notch'ga yopishgan shakl).
     g.frame = NSRect(x: ((b.width - width) / 2).rounded(), y: b.height - height,
                      width: width.rounded(), height: height + radius)
-    GlassRootController.setCornerRadius(g, radius)
+    GlassFactory.setCornerRadius(g, radius)
     if visible != glassVisible {
       glassVisible = visible
       NSAnimationContext.runAnimationGroup { ctx in
@@ -512,36 +521,9 @@ class MainFlutterWindow: NSPanel {
 }
 
 
-// MARK: - Liquid Glass ildiz ko'rinishi
+// MARK: - Liquid Glass yordamchilari
 
-/// Flutter ko'rinishi va uning ortidagi shisha qatlamini birga saqlaydi.
-final class GlassRootController: NSViewController {
-  let flutter: FlutterViewController
-  let glass: NSView
-  private let size: NSSize
-
-  init(flutter: FlutterViewController, size: NSSize) {
-    self.flutter = flutter
-    self.size = size
-    self.glass = GlassRootController.makeGlass()
-    super.init(nibName: nil, bundle: nil)
-  }
-
-  required init?(coder: NSCoder) { fatalError("init(coder:) ishlatilmaydi") }
-
-  override func loadView() {
-    let root = NSView(frame: NSRect(origin: .zero, size: size))
-    root.wantsLayer = true
-    glass.alphaValue = 0
-    glass.frame = .zero
-    root.addSubview(glass)
-    addChild(flutter)
-    flutter.view.frame = root.bounds
-    flutter.view.autoresizingMask = [.width, .height]
-    root.addSubview(flutter.view)
-    view = root
-  }
-
+enum GlassFactory {
   /// Apple Liquid Glass (macOS 26+) mavjudmi
   static var liquidGlassAvailable: Bool {
     #if compiler(>=6.2)
@@ -553,15 +535,19 @@ final class GlassRootController: NSViewController {
   static func makeGlass() -> NSView {
     #if compiler(>=6.2)
     if #available(macOS 26.0, *) {
-      let g = NSGlassEffectView()
+      let g = PassthroughGlassView()
       g.style = .regular
       g.cornerRadius = 28
       // Oq matn har qanday fon ustida o'qilishi uchun shisha biroz qoraytiriladi
       g.tintColor = NSColor.black.withAlphaComponent(0.22)
+      // macOS 27+: shisha sichqoncha bosishlarini o'ziga olmasin —
+      // aks holda Flutter tugmalari bosilmaydi (faqat dekor qatlam).
+      let sel = NSSelectorFromString("setEffectIsInteractive:")
+      if g.responds(to: sel) { g.setValue(false, forKey: "effectIsInteractive") }
       return g
     }
     #endif
-    let v = NSVisualEffectView()
+    let v = PassthroughEffectView()
     v.material = .hudWindow
     v.blendingMode = .behindWindow
     v.state = .active
@@ -581,4 +567,21 @@ final class GlassRootController: NSViewController {
     #endif
     if v.layer?.cornerRadius != r { v.layer?.cornerRadius = r }
   }
+}
+
+// MARK: - Sichqoncha uchun "ko'rinmas" shisha
+
+/// Shisha faqat bezak: hech qachon sichqoncha hodisasini qabul qilmaydi,
+/// aks holda Flutter tugmalari bosilmay qoladi.
+#if compiler(>=6.2)
+@available(macOS 26.0, *)
+final class PassthroughGlassView: NSGlassEffectView {
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+  override func acceptsFirstMouse(for event: NSEvent?) -> Bool { false }
+}
+#endif
+
+final class PassthroughEffectView: NSVisualEffectView {
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+  override func acceptsFirstMouse(for event: NSEvent?) -> Bool { false }
 }

@@ -1137,7 +1137,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       ]),
       const Spacer(),
       Row(children: [
-        const Text('Dinamik Orol 1.2', style: TextStyle(color: Colors.white38, fontSize: 11)),
+        const Text('Dinamik Orol 1.2.1', style: TextStyle(color: Colors.white38, fontSize: 11)),
         const Spacer(),
         _pill('Dasturdan chiqish', const Color(0xFFFF453A), native.quit),
       ]),
