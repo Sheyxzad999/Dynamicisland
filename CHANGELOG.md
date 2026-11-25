@@ -1,5 +1,19 @@
 # O'zgarishlar tarixi
 
+## [1.3.0] - 2026-11-25
+
+### Qoʻshildi
+- 🎵 **Istalgan joydagi media**: Safari, Chrome, Brave va Edge'dagi YouTube va boshqa saytlar —
+  nomi, kanali, muqovasi va ⏯ boshqaruvi. Hech narsa aniqlanmasa ham ⏮ ⏯ ⏭ tugmalari
+  tizim media tugmalari orqali istalgan ilovani (Telegram, VLC, IINA…) boshqaradi
+- 🤖 **AI agentlar notch'da**: Claude Code ishlayotganda, ruxsat soʻraganda va vazifani
+  tugatganda orol xabar beradi; "Terminal" tugmasi agent oynasiga olib boradi; AI boʻlimi va
+  bugungi statistika. Ulash `~/.claude/settings.json` ga async hook qoʻshadi (zaxira olinadi)
+- 🇬🇧 **Inglizcha interfeys**: Sozlamalar → Til → English
+
+### Oʻzgardi
+- Sozlamalardagi uchta kalit bir qatorda
+
 ## [1.2.2] - 2026-11-25
 
 ### Tuzatildi

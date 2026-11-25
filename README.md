@@ -43,6 +43,27 @@ v1.2 dan boshlab ochilgan orol **Apple'ning haqiqiy Liquid Glass materialidan** 
 - **macOS 26 dan eski** tizimlarda avtomatik ravishda shaffof xira shisha (`NSVisualEffectView`) ishlatiladi.
 - Yoqmasa — **⚙️ Sozlamalar → Liquid Glass koʻrinishi** ni oʻchirib, klassik qora orolga qaytish mumkin.
 
+## 🆕 v1.3 — yangi imkoniyatlar
+
+### 🎵 Istalgan joydagi media
+Asosiy boʻlimdagi pleyer endi faqat Spotify va Music emas, **brauzerdagi YouTube va boshqa saytlarni** ham koʻrsatadi: video nomi, kanal, muqova va ⏯ tugmasi. Hech narsa aniqlanmasa ham ⏮ ⏯ ⏭ tugmalari klaviaturadagi media tugmalari kabi ishlaydi — Telegram, VLC, IINA va hozir ovoz chiqarayotgan istalgan ilovani boshqaradi.
+
+| Manba | Nima koʻrinadi | Nima kerak |
+|---|---|---|
+| Spotify, Apple Music | Nom, ijrochi, muqova, vaqt | Hech narsa |
+| Safari / Chrome / Brave / Edge | Video nomi, kanal, muqova | Brauzerda bir marta **Allow JavaScript from Apple Events** ni yoqish (Safari: Sozlamalar → Developer; Chrome: View → Developer) |
+| Istalgan boshqa ilova | Faqat boshqaruv tugmalari | **Accessibility** ruxsati (orolning oʻzi soʻraydi) |
+
+### 🤖 AI agentlar notch'da
+Claude Code ishlayotganda orol yonida ✦ va loyiha nomi koʻrinadi. Agent **ruxsat soʻrasa** — sariq ✋ banner va ovoz, **vazifani tugatsa** — yashil ✅ banner. Banner yoki AI boʻlimidagi sessiyani bossangiz, agent ishlayotgan terminal oldinga chiqadi. AI boʻlimida bugungi soʻrovlar, asboblar soni va ish vaqti.
+
+**Ulash:** orolni oching → ✦ AI → **Claude Code’ga ulash**. Bu `~/.claude/settings.json` ga kichik `async` hook qoʻshadi (Claude Code sekinlashmaydi, avvalgi fayldan zaxira nusxa olinadi). Hook maʼlumotni faqat shu kompyuterdagi `127.0.0.1:47811` ga yuboradi. Uzish — oʻsha yerda.
+
+> Ruxsatni notch'dan berish (Allow/Deny) ataylab qoʻshilmagan: buyruqni toʻliq koʻrmasdan tasdiqlash xavfli.
+
+### 🇬🇧 English
+⚙️ Sozlamalar → **Til → English** — butun interfeys inglizchaga oʻtadi.
+
 ## 🏝 Yopiq holatlar
 
 Orol yopiq turganda notch'ning ikki yonida "qanotlar" paydo boʻladi:
@@ -68,7 +89,7 @@ Shuningdek: uchrashuvgacha qolgan daqiqalar, keyingi namozgacha vaqt, zaryadlovc
 
 | | Boʻlim | Tavsif |
 |---|---|---|
-| 🎵 | **Musiqa** | Spotify va Apple Music: qoʻshiq nomi, muqovasi, vaqt chizigʻi, boshqaruv tugmalari. Ijro etilganda notch yonida ekvalayzer "oʻynaydi" |
+| 🎵 | **Musiqa va video** | Spotify, Apple Music va brauzerdagi YouTube: nomi, muqovasi, vaqt chizigʻi. ⏮ ⏯ ⏭ istalgan ilovadagi mediani boshqaradi |
 | ⏱ | **Taymer** | Bir bosishda 1 daqiqadan 2 soatgacha. Pauza, +1 daqiqa, notch yonida orqaga sanash, tugaganda ovozli signal |
 | 📦 | **Choʻntak** | Faylni notch ustiga sudrab tashlang. Bosilsa ochiladi, oʻng tugma bilan Finder'da koʻrsatiladi |
 | 📋 | **Nusxalar tarixi** | Oxirgi 50 ta nusxalangan matn, qadab qoʻyish (📌), bir bosishda qayta nusxalash. Parol menejerlaridan nusxalangan matnlar saqlanmaydi |
@@ -81,6 +102,8 @@ Shuningdek: uchrashuvgacha qolgan daqiqalar, keyingi namozgacha vaqt, zaryadlovc
 | ⚡ | **Tezkor amallar** | Ekranni qulflash, ekranni oʻchirish, uyqu rejimi, ekran rasmi (qulflash/uyqu ikki marta bosishni talab qiladi) |
 | 🔋 | **Batareya** | Foiz, toʻlishigacha yoki tugashigacha qolgan vaqt. Zaryadlovchi ulanganda animatsiya |
 | 💎 | **Liquid Glass** | Apple'ning haqiqiy shisha materiali (macOS 26+), sozlamalarda oʻchirish mumkin |
+| 🤖 | **AI agentlar** | Claude Code holati: ishlayapti / ruxsat kerak / tayyor, terminalga oʻtish, bugungi statistika |
+| 🇬🇧 | **English** | Interfeysni inglizchaga oʻtkazish |
 
 ---
 
@@ -154,7 +177,9 @@ Birinchi ishlatishda macOS bir necha ruxsat soʻraydi — hammasiga **OK / Allow
 | Muammo | Yechim |
 |---|---|
 | Orol koʻrinmayapti | Dastur ishlab turganini tekshiring (Activity Monitor → *Dinamik Orol*). Tashqi monitor ulangan boʻlsa, orol notch'li ekranda chiqadi |
-| Musiqa koʻrinmayapti | Faqat **Spotify** va **Apple Music** qoʻllab-quvvatlanadi. System Settings → Privacy & Security → **Automation** da Dinamik Orol'ga ruxsat berilganini tekshiring |
+| Musiqa koʻrinmayapti | Spotify/Music: Privacy & Security → **Automation** da ruxsatni tekshiring. Brauzer: *Allow JavaScript from Apple Events* yoqilganini tekshiring |
+| ⏮ ⏯ ⏭ boshqa ilovani boshqarmaydi | Privacy & Security → **Accessibility** da Dinamik Orol'ni yoqing |
+| AI boʻlimi boʻsh | ✦ AI → *Claude Code’ga ulash* ni bosing, keyin terminalda `claude` ni qayta ishga tushiring |
 | Kalendar boʻsh | Kalendar boʻlimidagi **Ruxsat berish** tugmasini bosing yoki Privacy & Security → **Calendars** da ruxsat bering |
 | Tugmalar bosilmaydi (v1.2.0) | Eng soʻnggi versiyaga yangilang — bu xato v1.2.1 da tuzatilgan |
 | Shisha juda shaffof yoki yoqmaydi | ⚙️ Sozlamalar → *Liquid Glass koʻrinishi* ni oʻchiring |
@@ -203,7 +228,8 @@ macos/Runner/
 
 ## ⚠️ Cheklovlar
 
-- Musiqa faqat **Spotify** va **Apple Music** dan oʻqiladi. Brauzerdagi YouTube kabi manbalarga macOS 15.4+ ruxsat bermaydi.
+- Toʻliq maʼlumot (nom, muqova) Spotify, Music va Safari/Chrome/Brave/Edge'dan olinadi. Boshqa ilovalar (Telegram, VLC) faqat boshqariladi — macOS 15.4+ ularning maʼlumotini uchinchi tomon dasturlariga bermaydi.
+- AI boʻlimi hozircha faqat **Claude Code** bilan ishlaydi.
 - "Bezovta qilmang" (Focus) rejimini boshqarish uchun macOS ochiq API bermaydi.
 - Namoz vaqtlari [AlAdhan](https://aladhan.com) xizmatidan olinadi (MWL usuli, asr Hanafiy mazhabi boʻyicha) va Oʻzbekiston musulmonlari idorasi jadvalidan bir necha daqiqa farq qilishi mumkin.
 
@@ -262,7 +288,13 @@ Since v1.2 the expanded island is made of **Apple's real Liquid Glass material**
 | ⚡ | **Quick actions** | Lock screen, display off, sleep, screenshot (lock/sleep require a second tap) |
 | 🔋 | **Battery** | Percentage and time to full/empty; animation when the charger is connected |
 
-The interface is in Uzbek (Latin script).
+The interface is available in Uzbek and English (⚙️ Settings → Language).
+
+## 🆕 New in v1.3
+
+- **Media from anywhere:** the Home player now shows **YouTube and other sites in Safari, Chrome, Brave and Edge** (title, channel, artwork, play/pause). Even when nothing is detected, the ⏮ ⏯ ⏭ buttons act like your keyboard's media keys and control whatever app is playing (Telegram, VLC, IINA…). Browser titles need *Allow JavaScript from Apple Events* enabled once in the browser; controlling other apps needs **Accessibility** permission (the island asks for it).
+- **AI agents in the notch:** while Claude Code works, the notch shows ✦ and the project name; when it **needs permission** you get an orange ✋ banner and a sound, when it **finishes** a green ✅ banner. Clicking a banner or a session brings its terminal to the front. The AI tab shows today's prompts, tool calls and work time. Connect from ✦ AI → *Connect Claude Code* — it adds a small `async` hook to `~/.claude/settings.json` (backup made) that posts only to `127.0.0.1:47811`. Approving tools from the notch is intentionally not supported.
+- **English interface:** ⚙️ Settings → Language → English.
 
 ## 🍎 Installing on a Mac
 
