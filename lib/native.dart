@@ -38,6 +38,10 @@ class MediaInfo {
   final double position;
   final double duration;
   final String source;
+  /// Brauzerdagi sayt (masalan youtube.com)
+  final String site;
+  /// JavaScript ruxsati berilmagan brauzerlar (maslahat ko'rsatish uchun)
+  final String blocked;
   final DateTime receivedAt;
 
   MediaInfo({
@@ -48,6 +52,8 @@ class MediaInfo {
     this.position = 0,
     this.duration = 0,
     this.source = '',
+    this.site = '',
+    this.blocked = '',
     DateTime? receivedAt,
   }) : receivedAt = receivedAt ?? DateTime.now();
 
@@ -69,7 +75,11 @@ class MediaInfo {
         position: ((m['position'] ?? 0) as num).toDouble(),
         duration: ((m['duration'] ?? 0) as num).toDouble(),
         source: (m['source'] ?? '') as String,
+        site: (m['site'] ?? '') as String,
+        blocked: (m['blocked'] ?? '') as String,
       );
+
+  bool get isBrowser => site.isNotEmpty;
 }
 
 class ClipEvent {
@@ -171,6 +181,16 @@ class Native {
 
   Future<void> setIslandSize(Size s) =>
       _ch.invokeMethod('setIslandSize', {'width': s.width, 'height': s.height});
+  /// Tizim media tugmalari (istalgan ilovani boshqarish) uchun Accessibility ruxsati bormi
+  Future<bool> mediaKeysAllowed() async {
+    try {
+      return (await _ch.invokeMethod('mediaKeysAllowed')) == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> requestMediaKeys() => _ch.invokeMethod('requestMediaKeys');
   Future<void> media_(String command) => _ch.invokeMethod('media', {'command': command});
   Future<void> openFile(String path) => _ch.invokeMethod('openFile', {'path': path});
   Future<void> revealFile(String path) => _ch.invokeMethod('revealFile', {'path': path});

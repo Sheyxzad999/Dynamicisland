@@ -120,6 +120,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   bool showPrayer = true;
   bool launchAtLogin = false;
   bool useGlass = true;
+  bool mediaKeysOk = true;
   bool glassNative = false;
   IslandShape? _sentGlass;
   String? _lastPrayerAlert;
@@ -149,6 +150,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     _loadPrefs();
     native.glassSupported().then((v) => setState(() => glassNative = v));
+    _checkMediaKeys();
     if (kDemo.isNotEmpty) {
       expanded = kDemo != 'compact' && kDemo != 'music';
       tab = int.tryParse(kDemo) ?? 0;
@@ -204,6 +206,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       // Kursor shunchaki ustidan o'tib ketsa ochilmasin: bir lahza to'xtashi kerak
       _hoverTimer = Timer(const Duration(milliseconds: 220), () {
         if (!native.hover.value || !mounted) return;
+        _checkMediaKeys();
         setState(() {
           expanded = true;
           if (alert != null && alert!.kind != AlertKind.charging) alert = null;
@@ -787,16 +790,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
 
   Widget _musicPlayer() {
     final m = native.media.value;
-    if (!m.hasTrack) {
-      return const Row(children: [
-        Icon(Icons.music_off_rounded, color: kDim, size: 34),
-        SizedBox(width: 12),
-        Expanded(
-          child: Text('Musiqa ijro etilmayapti\nSpotify yoki Apple Music’da qo‘shiq qo‘ying',
-              style: TextStyle(color: kDim, fontSize: 12, height: 1.4)),
-        ),
-      ]);
-    }
+    if (!m.hasTrack) return _universalMedia(m);
     final pos = m.livePosition;
     final frac = m.duration > 0 ? (pos / m.duration).clamp(0.0, 1.0) : 0.0;
     return Row(children: [
@@ -812,7 +806,13 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
             ),
             if (m.isPlaying) Equalizer(controller: eq, color: kGreen),
           ]),
-          Text(m.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kDim, fontSize: 12)),
+          Row(children: [
+            Flexible(
+              child: Text(m.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kDim, fontSize: 12)),
+            ),
+            const SizedBox(width: 8),
+            _sourceChip(m),
+          ]),
           const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
@@ -838,6 +838,93 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
         ]),
       ),
     ]);
+  }
+
+  /// Media qayerdan ijro etilayotgani: "Spotify", "YouTube · Chrome" va h.k.
+  String _sourceLabel(MediaInfo m) {
+    if (!m.isBrowser) return m.source;
+    const short = {'Google Chrome': 'Chrome', 'Brave Browser': 'Brave', 'Microsoft Edge': 'Edge'};
+    final site = m.site.contains('youtube') ? 'YouTube' : (m.site.contains('music.yandex') ? 'Yandex Music' : m.site);
+    return '$site · ${short[m.source] ?? m.source}';
+  }
+
+  Widget _sourceChip(MediaInfo m) {
+    final label = _sourceLabel(m);
+    if (label.isEmpty) return const SizedBox();
+    final icon = m.isBrowser ? Icons.public_rounded : Icons.music_note_rounded;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: glassTile(radius: 8),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 10, color: kDim),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(color: kDim, fontSize: 10, fontWeight: FontWeight.w600)),
+      ]),
+    );
+  }
+
+  /// Hech narsa aniqlanmaganda ham — tugmalar istalgan ilovadagi mediani boshqaradi.
+  Widget _universalMedia(MediaInfo m) {
+    return Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Container(
+          width: 52, height: 52,
+          decoration: glassTile(radius: 14),
+          child: const Icon(Icons.graphic_eq_rounded, color: kDim, size: 26),
+        ),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Hech narsa ijro etilmayapti',
+                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+            SizedBox(height: 2),
+            Text('Tugmalar istalgan joydagi mediani boshqaradi:\nYouTube, Spotify, Telegram, VLC…',
+                style: TextStyle(color: kDim, fontSize: 11.5, height: 1.35)),
+          ]),
+        ),
+      ]),
+      const SizedBox(height: 12),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        _iconBtn(Icons.skip_previous_rounded, 26, () => native.media_('previous')),
+        const SizedBox(width: 18),
+        _iconBtn(Icons.play_arrow_rounded, 34, () => native.media_('playpause')),
+        const SizedBox(width: 18),
+        _iconBtn(Icons.skip_next_rounded, 26, () => native.media_('next')),
+      ]),
+      if (!mediaKeysOk) ...[
+        const SizedBox(height: 10),
+        Tap(
+          onTap: () async {
+            await native.requestMediaKeys();
+            _checkMediaKeys();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: glassTile(radius: 10, tint: kOrange, active: true),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.lock_open_rounded, size: 13, color: kOrange),
+              SizedBox(width: 6),
+              Text('Istalgan ilovani boshqarish uchun ruxsat bering',
+                  style: TextStyle(color: kOrange, fontSize: 11, fontWeight: FontWeight.w600)),
+            ]),
+          ),
+        ),
+      ],
+      if (m.blocked.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        Text(_jsHint(m.blocked), maxLines: 2, style: const TextStyle(color: kDim, fontSize: 10.5, height: 1.35)),
+      ],
+    ]);
+  }
+
+  String _jsHint(String browsers) => browsers.contains('Safari')
+      ? 'Video nomini koʻrish uchun: Safari → Sozlamalar → Developer → Allow JavaScript from Apple Events'
+      : 'Brauzerdagi video nomini koʻrish: $browsers → View → Developer → Allow JavaScript from Apple Events';
+
+  void _checkMediaKeys() {
+    native.mediaKeysAllowed().then((v) {
+      if (mounted && v != mediaKeysOk) setState(() => mediaKeysOk = v);
+    });
   }
 
   Widget _sideInfo() {
@@ -1220,7 +1307,9 @@ class Artwork extends StatelessWidget {
           begin: Alignment.topLeft, end: Alignment.bottomRight,
           colors: media.source == 'Spotify'
               ? const [Color(0xFF1DB954), Color(0xFF0E5C2A)]
-              : const [Color(0xFFFF375F), Color(0xFFBF5AF2)],
+              : media.site.contains('youtube')
+                  ? const [Color(0xFFFF3B30), Color(0xFFB3121B)]
+                  : const [Color(0xFFFF375F), Color(0xFFBF5AF2)],
         ),
       ),
       child: Icon(Icons.music_note_rounded, color: Colors.white, size: size * 0.55),

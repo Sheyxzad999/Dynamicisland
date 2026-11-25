@@ -1,4 +1,5 @@
 import Cocoa
+import ApplicationServices
 import FlutterMacOS
 import CoreAudio
 import CoreMediaIO
@@ -160,6 +161,11 @@ class MainFlutterWindow: NSPanel {
       result(nil)
     case "glassSupported":
       result(GlassFactory.liquidGlassAvailable)
+    case "mediaKeysAllowed":
+      result(AXIsProcessTrusted())
+    case "requestMediaKeys":
+      requestAccessibility()
+      result(nil)
     case "getBattery":
       result(batteryInfo())
     case "media":
@@ -307,17 +313,67 @@ class MainFlutterWindow: NSPanel {
 
   private let sep = "\u{1F}"
 
+  // Brauzerlar: ichidagi <video>/<audio> va Media Session maʼlumoti JavaScript orqali o'qiladi.
+  // Buning uchun brauzerda bir marta "Allow JavaScript from Apple Events" yoqiladi.
+  private struct Browser { let id: String; let name: String; let safari: Bool }
+  private let browsers = [
+    Browser(id: "com.apple.Safari", name: "Safari", safari: true),
+    Browser(id: "com.google.Chrome", name: "Google Chrome", safari: false),
+    Browser(id: "com.brave.Browser", name: "Brave Browser", safari: false),
+    Browser(id: "com.microsoft.edgemac", name: "Microsoft Edge", safari: false),
+  ]
+  private var lastBrowserPoll = Date.distantPast
+  private var lastBrowserInfo: [String: Any]?   // faqat scriptQueue'da
+  private var jsBlocked = Set<String>()          // faqat scriptQueue'da
+
+  /// Sahifadagi ijro etilayotgan (yoki to'xtatilgan) media haqida JSON qaytaradi.
+  private let mediaJS = """
+  (function(){var ms=[].slice.call(document.querySelectorAll('video,audio'));var m=null,i;\
+  for(i=0;i<ms.length;i++){if(!ms[i].paused&&!ms[i].ended&&ms[i].currentTime>0){m=ms[i];break}}\
+  if(!m){for(i=0;i<ms.length;i++){if(ms[i].currentTime>0&&!ms[i].ended&&ms[i].duration>0){m=ms[i];break}}}\
+  if(!m)return '';var md=navigator.mediaSession&&navigator.mediaSession.metadata;var art='';\
+  if(md&&md.artwork&&md.artwork.length){art=md.artwork[md.artwork.length-1].src}\
+  return JSON.stringify({t:(md&&md.title)||document.title,a:(md&&md.artist)||location.hostname.replace(/^www\\./,''),\
+  art:art,p:m.currentTime,d:isFinite(m.duration)?m.duration:0,s:m.paused?'paused':'playing',h:location.hostname})})()
+  """
+
+  private let toggleJS = """
+  (function(){var ms=[].slice.call(document.querySelectorAll('video,audio'));\
+  for(var i=0;i<ms.length;i++){var m=ms[i];if(m.currentTime>0&&!m.ended){if(m.paused){m.play()}else{m.pause()}return 'ok'}}return ''})()
+  """
+
   private func pollMedia() {
     let spotify = isRunning(spotifyId)
     let music = isRunning(musicId)
+    let running = browsers.filter { isRunning($0.id) }
+    let pollBrowsers = Date().timeIntervalSince(lastBrowserPoll) > 2.5
+    if pollBrowsers { lastBrowserPoll = Date() }
     scriptQueue.async { [weak self] in
       guard let self else { return }
       var candidates: [[String: Any]] = []
       if spotify, let s = self.readPlayer(app: "Spotify", spotify: true) { candidates.append(s) }
       if music, let s = self.readPlayer(app: "Music", spotify: false) { candidates.append(s) }
-      let info = candidates.first(where: { $0["state"] as? String == "playing" })
+      let nativePlaying = candidates.contains { $0["state"] as? String == "playing" }
+      if !nativePlaying {
+        if pollBrowsers {
+          var found: [String: Any]?
+          for b in running {
+            if let i = self.readBrowser(b) {
+              found = i
+              if i["state"] as? String == "playing" { break }
+            }
+          }
+          self.lastBrowserInfo = found
+        }
+        if let b = self.lastBrowserInfo { candidates.append(b) }
+      }
+      var info = candidates.first(where: { $0["state"] as? String == "playing" })
         ?? candidates.first
         ?? ["state": "none"]
+      let blocked = self.jsBlocked.intersection(running.map(\.name))
+      if info["state"] as? String == "none", !blocked.isEmpty {
+        info["blocked"] = blocked.sorted().joined(separator: ", ")
+      }
       DispatchQueue.main.async {
         if !NSDictionary(dictionary: info).isEqual(to: self.lastMedia) {
           self.lastMedia = info
@@ -325,6 +381,51 @@ class MainFlutterWindow: NSPanel {
         }
       }
     }
+  }
+
+  /// Brauzerning barcha varaqlarida JavaScript bajaradi va birinchi bo'sh bo'lmagan natijani qaytaradi.
+  private func runInTabs(_ b: Browser, _ js: String) -> String? {
+    let escaped = js.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+    let run = b.safari ? "do JavaScript \"\(escaped)\" in t" : "execute t javascript \"\(escaped)\""
+    let src = """
+    tell application "\(b.name)"
+      repeat with w in windows
+        repeat with t in tabs of w
+          set r to \(run)
+          if r is not missing value and r is not "" then return r
+        end repeat
+      end repeat
+      return ""
+    end tell
+    """
+    var err: NSDictionary?
+    let out = NSAppleScript(source: src)?.executeAndReturnError(&err)
+    if let err {
+      let msg = (err[NSAppleScript.errorMessage] as? String) ?? ""
+      if msg.localizedCaseInsensitiveContains("JavaScript") { jsBlocked.insert(b.name) }
+      return nil
+    }
+    jsBlocked.remove(b.name)
+    let text = out?.stringValue ?? ""
+    return text.isEmpty ? nil : text
+  }
+
+  private func readBrowser(_ b: Browser) -> [String: Any]? {
+    guard let text = runInTabs(b, mediaJS),
+          let data = text.data(using: .utf8),
+          let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else { return nil }
+    let host = (j["h"] as? String ?? "").replacingOccurrences(of: "www.", with: "")
+    return [
+      "state": j["s"] as? String ?? "playing",
+      "title": j["t"] as? String ?? "",
+      "artist": j["a"] as? String ?? host,
+      "artwork": j["art"] as? String ?? "",
+      "position": (j["p"] as? NSNumber)?.doubleValue ?? 0,
+      "duration": (j["d"] as? NSNumber)?.doubleValue ?? 0,
+      "source": b.name,
+      "site": host,
+    ]
   }
 
   private func readPlayer(app: String, spotify: Bool) -> [String: Any]? {
@@ -360,20 +461,61 @@ class MainFlutterWindow: NSPanel {
   }
 
   private func mediaCommand(_ cmd: String) {
-    let verb: String
-    switch cmd {
-    case "playpause": verb = "playpause"
-    case "next": verb = "next track"
-    case "previous": verb = "previous track"
-    default: return
-    }
     let source = lastMedia["source"] as? String
-    let app: String? = source == "Spotify" ? "Spotify" : (source == "Music" ? "Music" : nil)
-    guard let app else { return }
-    scriptQueue.async { [weak self] in
-      var err: NSDictionary?
-      NSAppleScript(source: "tell application \"\(app)\" to \(verb)")?.executeAndReturnError(&err)
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { self?.pollMedia() }
+    // 1) Spotify / Music — AppleScript
+    if source == "Spotify" || source == "Music" {
+      let verb = cmd == "next" ? "next track" : (cmd == "previous" ? "previous track" : "playpause")
+      let app = source!
+      scriptQueue.async { [weak self] in
+        var err: NSDictionary?
+        NSAppleScript(source: "tell application \"\(app)\" to \(verb)")?.executeAndReturnError(&err)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { self?.pollMedia() }
+      }
+      return
+    }
+    // 2) Brauzer — ⏯ to'g'ridan-to'g'ri sahifada (ruxsatsiz ham ishlaydi)
+    if cmd == "playpause", let b = browsers.first(where: { $0.name == source }) {
+      scriptQueue.async { [weak self] in
+        guard let self else { return }
+        let ok = self.runInTabs(b, self.toggleJS) != nil
+        DispatchQueue.main.async {
+          if !ok { self.postMediaKey(cmd) }
+          self.lastBrowserPoll = .distantPast
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.pollMedia() }
+        }
+      }
+      return
+    }
+    // 3) Istalgan boshqa ilova — tizim media tugmalari
+    postMediaKey(cmd)
+    lastBrowserPoll = .distantPast
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.pollMedia() }
+  }
+
+  /// Klaviaturadagi ⏯ ⏮ ⏭ tugmalarini taqlid qiladi — hozir ovoz chiqarayotgan
+  /// istalgan ilovani boshqaradi. Accessibility ruxsati talab qilinadi.
+  private func postMediaKey(_ cmd: String) {
+    guard AXIsProcessTrusted() else {
+      requestAccessibility()
+      return
+    }
+    let key: Int = cmd == "next" ? 17 : (cmd == "previous" ? 18 : 16)  // NX_KEYTYPE_*
+    for down in [true, false] {
+      let flags = down ? 0xA00 : 0xB00
+      let ev = NSEvent.otherEvent(
+        with: .systemDefined, location: .zero,
+        modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(flags)),
+        timestamp: 0, windowNumber: 0, context: nil,
+        subtype: 8, data1: (key << 16) | flags, data2: -1)
+      ev?.cgEvent?.post(tap: .cghidEventTap)
+    }
+  }
+
+  private func requestAccessibility() {
+    let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+    if !AXIsProcessTrustedWithOptions(opts),
+       let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+      NSWorkspace.shared.open(url)
     }
   }
 
