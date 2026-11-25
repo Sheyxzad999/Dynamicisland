@@ -1,5 +1,11 @@
 # O'zgarishlar tarixi
 
+## [1.3.1] - 2026-11-25
+
+### Tuzatildi
+- Brauzerda JavaScript ishlamaydigan bitta tab (PDF, sozlamalar sahifasi) boshqa tablardagi
+  videoni aniqlashni toʻxtatib qoʻyardi — endi har bir tab alohida tekshiriladi
+
 ## [1.3.0] - 2026-11-25
 
 ### Qoʻshildi

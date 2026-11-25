@@ -400,8 +400,13 @@ class MainFlutterWindow: NSPanel {
     tell application "\(b.name)"
       repeat with w in windows
         repeat with t in tabs of w
-          set r to \(run)
-          if r is not missing value and r is not "" then return r
+          try
+            set r to \(run)
+            if r is not missing value and r is not "" then return r
+          on error e
+            -- Bitta tab (PDF, sozlamalar sahifasi) xato bersa, qolganlari tekshirilaveradi
+            if e contains "Apple Events" then return "__JSBLOCKED__"
+          end try
         end repeat
       end repeat
       return ""
@@ -414,8 +419,12 @@ class MainFlutterWindow: NSPanel {
       if msg.localizedCaseInsensitiveContains("JavaScript") { jsBlocked.insert(b.name) }
       return nil
     }
-    jsBlocked.remove(b.name)
     let text = out?.stringValue ?? ""
+    if text == "__JSBLOCKED__" {
+      jsBlocked.insert(b.name)
+      return nil
+    }
+    jsBlocked.remove(b.name)
     return text.isEmpty ? nil : text
   }
 
