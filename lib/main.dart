@@ -6,12 +6,15 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'i18n.dart';
 import 'native.dart';
 import 'prayer.dart';
 import 'services/calendar.dart';
 import 'services/clipboard.dart';
 import 'services/currency.dart';
+import 'services/agents.dart';
 import 'services/weather.dart';
+import 'tabs/agents_tab.dart';
 import 'tabs/calendar_tab.dart';
 import 'tabs/clipboard_tab.dart';
 import 'tabs/currency_tab.dart';
@@ -20,11 +23,13 @@ import 'ui.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await loadLang();
   await Native.instance.init();
   await ClipboardStore.instance.init();
   unawaited(PrayerService.instance.init().then((_) => WeatherService.instance.refresh()));
   unawaited(CurrencyService.instance.refresh());
   unawaited(CalendarService.instance.init());
+  AgentService.instance.init();
   runApp(const OrolApp());
 }
 
@@ -49,7 +54,7 @@ class OrolApp extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-enum AlertKind { charging, timerDone, prayer, event }
+enum AlertKind { charging, timerDone, prayer, event, agentDone, agentWait }
 
 class IslandAlert {
   final AlertKind kind;
@@ -128,6 +133,8 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   String? _armedAction; // tasdiq kutayotgan tezkor amal
   Timer? _armTimer;
   Timer? _hoverTimer;
+  StreamSubscription<AgentAlert>? _agentSub;
+  String _agentTerm = '';
 
   late final AnimationController eq =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
@@ -141,6 +148,9 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     native.battery.addListener(_onBattery);
     native.media.addListener(_onMedia);
     native.notch.addListener(_refresh);
+    appLang.addListener(_refresh);
+    AgentService.instance.sessions.addListener(_refresh);
+    _agentSub = AgentService.instance.alerts.stream.listen(_onAgentAlert);
     prayers.today.addListener(_refresh);
     native.mic.addListener(_refresh);
     native.camera.addListener(_refresh);
@@ -227,6 +237,15 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     }
   }
 
+  void _onAgentAlert(AgentAlert a) {
+    _agentTerm = a.session.term;
+    alert = a.needsPermission
+        ? IslandAlert(AlertKind.agentWait, '${a.session.project} — ${tr('ruxsat kerak', 'needs permission')}', a.text, const Duration(seconds: 20))
+        : IslandAlert(AlertKind.agentDone, '${a.session.project} — ${tr('tayyor', 'done')}', a.text, const Duration(seconds: 10));
+    native.playSound(a.needsPermission ? 'Funk' : 'Glass');
+    _refresh();
+  }
+
   void _onBattery() {
     final b = native.battery.value;
     if (b.plugged && !_prevBattery.plugged && _prevBattery.available) {
@@ -298,6 +317,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     _collapseTimer?.cancel();
     _hoverTimer?.cancel();
     _armTimer?.cancel();
+    _agentSub?.cancel();
     eq.dispose();
     super.dispose();
   }
@@ -350,7 +370,9 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   /// Yig'ilgan holatda notch yonida nima ko'rsatiladi.
   String get _compactMode {
     if (alert?.kind == AlertKind.charging) return 'charging';
+    if (AgentService.instance.waiting.isNotEmpty) return 'agentWait';
     if (timerActive) return 'timer';
+    if (AgentService.instance.working.isNotEmpty) return 'agent';
     if (native.media.value.isPlaying) return 'music';
     final ev = CalendarService.instance.next();
     if (ev != null && ev.start.isAfter(DateTime.now()) && ev.start.difference(DateTime.now()).inMinutes < 10) {
@@ -380,6 +402,9 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       case 'timer':
         // "1:05:30" kabi vaqt bir qatorga sig'ishi uchun kengroq qanot
         return Size(n.width + 150, n.height);
+      case 'agent':
+      case 'agentWait':
+        return Size(n.width + 280, n.height);
       default:
         return Size(n.width + 96, n.height);
     }
@@ -479,7 +504,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
               child: KeyedSubtree(
-                key: ValueKey(open ? 'open$tab' : (_bannerAlert ? 'banner' : _compactMode)),
+                key: ValueKey('${appLang.value}-${open ? 'open$tab' : (_bannerAlert ? 'banner' : _compactMode)}'),
                 child: content,
               ),
             ),
@@ -533,6 +558,23 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       case 'privacy':
         left = const SizedBox();
         right = const SizedBox();
+      case 'agent':
+      case 'agentWait':
+        final wait = mode == 'agentWait';
+        final ss = wait ? AgentService.instance.waiting : AgentService.instance.working;
+        final c = wait ? kOrange : kAgent;
+        left = Row(mainAxisSize: MainAxisSize.min, children: [
+          _AgentPulse(color: c),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(ss.first.project, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.w600)),
+          ),
+        ]);
+        right = Text(
+          wait ? tr('Ruxsat kerak', 'Needs you') : (ss.length > 1 ? '${ss.length} ${tr('agent', 'agents')}' : tr('Ishlayapti', 'Working')),
+          maxLines: 1, softWrap: false,
+          style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.w600));
       default: // prayer
         final p = prayers.next()!;
         left = const Icon(Icons.mosque, color: kTeal, size: 17);
@@ -578,8 +620,11 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     final (icon, color) = switch (a.kind) {
       AlertKind.prayer => (Icons.mosque, kTeal),
       AlertKind.event => (Icons.event_rounded, kPurple),
+      AlertKind.agentDone => (Icons.check_circle_rounded, kGreen),
+      AlertKind.agentWait => (Icons.front_hand_rounded, kOrange),
       _ => (Icons.alarm, kOrange),
     };
+    final isAgent = a.kind == AlertKind.agentDone || a.kind == AlertKind.agentWait;
     return Padding(
       padding: EdgeInsets.fromLTRB(18, n.height + 6, 18, 10),
       child: Row(children: [
@@ -588,15 +633,18 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
         Expanded(
           child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(a.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-            Text(a.subtitle, style: const TextStyle(color: kDim, fontSize: 12)),
+            Text(a.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kDim, fontSize: 12)),
           ]),
         ),
         GestureDetector(
-          onTap: () => setState(() => alert = null),
+          onTap: () {
+            if (isAgent) native.activateTerminal(_agentTerm);
+            setState(() => alert = null);
+          },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: glassTile(radius: 14, tint: color, active: true),
-            child: Text('OK', style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+            child: Text(isAgent ? tr('Terminal', 'Terminal') : 'OK', style: TextStyle(color: color, fontWeight: FontWeight.w600)),
           ),
         ),
       ]),
@@ -606,17 +654,18 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   // -------------------------------------------------------------------------
   // Ochilgan ko'rinish
 
-  static const _tabs = [
-    (Icons.home_rounded, 'Asosiy'),
-    (Icons.timer_outlined, 'Taymer'),
-    (Icons.inventory_2_outlined, "Cho'ntak"),
-    (Icons.content_paste_rounded, 'Nusxalar'),
-    (Icons.currency_exchange_rounded, 'Valyuta'),
-    (Icons.wb_sunny_outlined, 'Ob-havo'),
-    (Icons.event_outlined, 'Kalendar'),
-    (Icons.mosque_outlined, 'Namoz'),
-    (Icons.settings_outlined, 'Sozlamalar'),
-  ];
+  List<(IconData, String)> get _tabs => [
+        (Icons.home_rounded, tr('Asosiy', 'Home')),
+        (Icons.timer_outlined, tr('Taymer', 'Timer')),
+        (Icons.inventory_2_outlined, tr('Choʻntak', 'Shelf')),
+        (Icons.content_paste_rounded, tr('Nusxalar', 'Clipboard')),
+        (Icons.currency_exchange_rounded, tr('Valyuta', 'Currency')),
+        (Icons.wb_sunny_outlined, tr('Ob-havo', 'Weather')),
+        (Icons.event_outlined, tr('Kalendar', 'Calendar')),
+        (Icons.mosque_outlined, tr('Namoz', 'Prayer')),
+        (Icons.auto_awesome_outlined, 'AI'),
+        (Icons.settings_outlined, tr('Sozlamalar', 'Settings')),
+      ];
 
   static const _actions = [
     (Icons.lock_rounded, 'Ekranni qulflash', 'lock'),
@@ -771,6 +820,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
             5 => const WeatherTab(),
             6 => const CalendarTab(),
             7 => _prayerTab(),
+            8 => const AgentsTab(),
             _ => _settingsTab(),
           },
         ),
@@ -1384,4 +1434,35 @@ class BatteryIcon extends StatelessWidget {
       ),
     ]);
   }
+}
+
+
+/// Agent ishlayotganini bildiruvchi yumshoq "nafas oluvchi" nuqta.
+class _AgentPulse extends StatefulWidget {
+  final Color color;
+  const _AgentPulse({required this.color});
+  @override
+  State<_AgentPulse> createState() => _AgentPulseState();
+}
+
+class _AgentPulseState extends State<_AgentPulse> with SingleTickerProviderStateMixin {
+  late final AnimationController c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))
+    ..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: c,
+        builder: (_, _) => Icon(
+          Icons.auto_awesome_rounded,
+          size: 14 + 3 * c.value,
+          color: widget.color.withValues(alpha: 0.55 + 0.45 * c.value),
+          shadows: [Shadow(color: widget.color.withValues(alpha: 0.6 * c.value), blurRadius: 8)],
+        ),
+      );
 }

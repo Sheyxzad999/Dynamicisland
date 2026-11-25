@@ -1,4 +1,5 @@
 import Cocoa
+import Network
 import ApplicationServices
 import FlutterMacOS
 import CoreAudio
@@ -28,6 +29,7 @@ class MainFlutterWindow: NSPanel {
   private var lastChangeCount = NSPasteboard.general.changeCount
   private var lastPrivacy: [String: Bool] = [:]
   private let eventStore = EKEventStore()
+  private var agentServer: AgentServer?
   private var glassView: NSView?
   private var glassVisible = false
 
@@ -58,6 +60,10 @@ class MainFlutterWindow: NSPanel {
 
     positionWindow()
     installGlass()
+    agentServer = AgentServer { [weak self] payload in
+      self?.channel.invokeMethod("agentEvent", arguments: payload)
+    }
+    agentServer?.start()
     NotificationCenter.default.addObserver(
       self, selector: #selector(screensChanged),
       name: NSApplication.didChangeScreenParametersNotification, object: nil)
@@ -161,6 +167,9 @@ class MainFlutterWindow: NSPanel {
       result(nil)
     case "glassSupported":
       result(GlassFactory.liquidGlassAvailable)
+    case "activateTerminal":
+      activateTerminal(args["term"] as? String ?? "")
+      result(nil)
     case "mediaKeysAllowed":
       result(AXIsProcessTrusted())
     case "requestMediaKeys":
@@ -511,6 +520,28 @@ class MainFlutterWindow: NSPanel {
     }
   }
 
+  /// TERM_PROGRAM qiymati bo'yicha agent ishlayotgan terminalni oldinga chiqaradi.
+  private func activateTerminal(_ term: String) {
+    let map: [String: [String]] = [
+      "Apple_Terminal": ["com.apple.Terminal"],
+      "iTerm.app": ["com.googlecode.iterm2"],
+      "WarpTerminal": ["dev.warp.Warp-Stable", "dev.warp.Warp"],
+      "ghostty": ["com.mitchellh.ghostty"],
+      "vscode": ["com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "com.exafunction.windsurf"],
+      "WezTerm": ["com.github.wez.wezterm"],
+      "Hyper": ["co.zeit.hyper"],
+      "kitty": ["net.kovidgoyal.kitty"],
+      "Alacritty": ["org.alacritty"],
+    ]
+    let ids = (map[term] ?? []) + ["com.apple.Terminal"]
+    for id in ids {
+      if let app = NSRunningApplication.runningApplications(withBundleIdentifier: id).first {
+        app.activate()
+        return
+      }
+    }
+  }
+
   private func requestAccessibility() {
     let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
     if !AXIsProcessTrustedWithOptions(opts),
@@ -726,4 +757,79 @@ final class PassthroughGlassView: NSGlassEffectView {
 final class PassthroughEffectView: NSVisualEffectView {
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
   override func acceptsFirstMouse(for event: NSEvent?) -> Bool { false }
+}
+
+// MARK: - AI agentlar uchun mahalliy server
+
+/// Faqat 127.0.0.1 da tinglaydi. Claude Code / Codex hook'lari bu yerga
+/// `POST /event` (JSON) yuboradi, server uni Flutter'ga uzatadi.
+final class AgentServer {
+  static let port: UInt16 = 47811
+  private var listener: NWListener?
+  private let onEvent: (String) -> Void
+  private let queue = DispatchQueue(label: "uz.dinamikorol.agents")
+
+  init(onEvent: @escaping (String) -> Void) { self.onEvent = onEvent }
+
+  func start() {
+    let params = NWParameters.tcp
+    params.requiredLocalEndpoint = NWEndpoint.hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: Self.port)!)
+    params.allowLocalEndpointReuse = true
+    guard let l = try? NWListener(using: params) else { return }
+    l.newConnectionHandler = { [weak self] c in self?.handle(c) }
+    l.start(queue: queue)
+    listener = l
+  }
+
+  private func handle(_ c: NWConnection) {
+    c.start(queue: queue)
+    receive(c, buffer: Data())
+  }
+
+  private func receive(_ c: NWConnection, buffer: Data) {
+    c.receive(minimumIncompleteLength: 1, maximumLength: 256 * 1024) { [weak self] data, _, done, err in
+      guard let self else { return }
+      var buf = buffer
+      if let data { buf.append(data) }
+      if let req = Self.parse(buf) {
+        let ok = req.method == "POST" && req.path.hasPrefix("/event")
+        if ok, let body = String(data: req.body, encoding: .utf8) {
+          let tagged = "{\"source\":\"\(req.query)\",\"term\":\"\(req.term)\",\"payload\":\(body.isEmpty ? "{}" : body)}"
+          DispatchQueue.main.async { self.onEvent(tagged) }
+        }
+        let status = ok ? "204 No Content" : "404 Not Found"
+        let resp = "HTTP/1.1 \(status)\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        c.send(content: resp.data(using: .utf8), completion: .contentProcessed { _ in c.cancel() })
+        return
+      }
+      if done || err != nil || buf.count > 1_000_000 { c.cancel(); return }
+      self.receive(c, buffer: buf)
+    }
+  }
+
+  private struct Request { let method: String; let path: String; let query: String; let term: String; let body: Data }
+
+  /// Oddiy HTTP/1.1 tahlili: sarlavhalar + Content-Length bo'yicha tana.
+  private static func parse(_ data: Data) -> Request? {
+    guard let sep = data.range(of: Data("\r\n\r\n".utf8)) else { return nil }
+    let head = String(decoding: data[..<sep.lowerBound], as: UTF8.self)
+    let lines = head.components(separatedBy: "\r\n")
+    let first = lines.first?.split(separator: " ") ?? []
+    guard first.count >= 2 else { return nil }
+    var length = 0
+    var term = ""
+    for l in lines.dropFirst() {
+      let kv = l.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+      guard kv.count == 2 else { continue }
+      if kv[0].lowercased() == "content-length" { length = Int(kv[1]) ?? 0 }
+      if kv[0].lowercased() == "x-term" { term = kv[1].filter { $0.isLetter || $0.isNumber || $0 == "." || $0 == "_" || $0 == "-" } }
+    }
+    let bodyStart = sep.upperBound
+    guard data.count - bodyStart >= length else { return nil }
+    let full = String(first[1])
+    let parts = full.split(separator: "?", maxSplits: 1)
+    let query = parts.count > 1 ? String(parts[1]).replacingOccurrences(of: "source=", with: "").filter { $0.isLetter } : "claude"
+    return Request(method: String(first[0]), path: String(parts[0]), query: query, term: term,
+                   body: data[bodyStart..<(bodyStart + length)])
+  }
 }

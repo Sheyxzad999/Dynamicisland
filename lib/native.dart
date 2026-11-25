@@ -137,6 +137,8 @@ class Native {
   final camera = ValueNotifier<bool>(false);
   final calendarChanged = ValueNotifier<int>(0);
   final _clip = StreamController<ClipEvent>.broadcast();
+  final _agents = StreamController<String>.broadcast();
+  Stream<String> get agentEvents => _agents.stream;
   Stream<ClipEvent> get clipboard => _clip.stream;
 
   Future<void> init() async {
@@ -157,6 +159,8 @@ class Native {
           camera.value = m['camera'] == true;
         case 'calendarChanged':
           calendarChanged.value++;
+        case 'agentEvent':
+          _agents.add(call.arguments as String);
         case 'screen':
           notch.value = NotchInfo.fromMap(call.arguments as Map);
       }
@@ -213,5 +217,7 @@ class Native {
     return list.map((e) => CalendarEvent.fromMap(e as Map)).toList();
   }
 
+  /// Agent ishlayotgan terminalni oldinga chiqaradi (TERM_PROGRAM boʻyicha).
+  Future<void> activateTerminal(String term) => _ch.invokeMethod('activateTerminal', {'term': term});
   Future<void> quit() => _ch.invokeMethod('quit');
 }
