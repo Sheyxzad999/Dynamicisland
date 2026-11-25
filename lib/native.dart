@@ -109,6 +109,9 @@ class NotchInfo {
       );
 }
 
+/// Skrinshot va sinov uchun: `--dart-define=OROL_DEMO=0` — orol ochiq, 0-bo'lim (`cycle` — aylanadi).
+const kDemo = String.fromEnvironment('OROL_DEMO');
+
 /// Swift bilan aloqa.
 class Native {
   Native._();
@@ -134,7 +137,7 @@ class Native {
         case 'battery':
           battery.value = BatteryInfo.fromMap(call.arguments as Map);
         case 'media':
-          media.value = MediaInfo.fromMap(call.arguments as Map);
+          if (kDemo.isEmpty) media.value = MediaInfo.fromMap(call.arguments as Map);
         case 'clipboard':
           final m = call.arguments as Map;
           _clip.add(ClipEvent(m['text'] as String, (m['app'] ?? '') as String));
@@ -153,6 +156,17 @@ class Native {
       notch.value = NotchInfo.fromMap(await _ch.invokeMethod('getScreen') as Map);
       battery.value = BatteryInfo.fromMap(await _ch.invokeMethod('getBattery') as Map);
     } catch (_) {}
+  }
+
+  /// Orol ortidagi Liquid Glass qatlamining shakli.
+  Future<void> setGlass(double width, double height, double radius, bool visible) =>
+      _ch.invokeMethod('setGlass', {'width': width, 'height': height, 'radius': radius, 'visible': visible});
+  Future<bool> glassSupported() async {
+    try {
+      return (await _ch.invokeMethod('glassSupported')) == true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> setIslandSize(Size s) =>

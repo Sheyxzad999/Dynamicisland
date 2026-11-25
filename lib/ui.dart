@@ -7,8 +7,26 @@ const kTeal = Color(0xFF64D2FF);
 const kPurple = Color(0xFFBF5AF2);
 const kRed = Color(0xFFFF453A);
 const kYellow = Color(0xFFFFD60A);
-const kDim = Color(0xFF8E8E93);
-const kCard = Color(0xFF1C1C1E);
+const kDim = Color(0xFFA1A1A8);
+const kCard = Color(0x17FFFFFF);
+const kHair = Color(0x1FFFFFFF);
+
+/// Liquid Glass uslubidagi plitka: shaffof oq qatlam, yorug' qirra, yumshoq gradient.
+BoxDecoration glassTile({double radius = 14, Color? tint, bool active = false}) {
+  final base = tint ?? Colors.white;
+  return BoxDecoration(
+    borderRadius: BorderRadius.circular(radius),
+    gradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        base.withValues(alpha: active ? 0.26 : 0.11),
+        base.withValues(alpha: active ? 0.14 : 0.05),
+      ],
+    ),
+    border: Border.all(color: (tint ?? Colors.white).withValues(alpha: active ? 0.45 : 0.12), width: 0.8),
+  );
+}
 
 String two(int n) => n.toString().padLeft(2, '0');
 
@@ -65,7 +83,7 @@ class Pill extends StatelessWidget {
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(14)),
+          decoration: glassTile(radius: 14, tint: color, active: true),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             if (icon != null) ...[Icon(icon, size: 14, color: color), const SizedBox(width: 5)],
             Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),

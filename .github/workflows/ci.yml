@@ -9,7 +9,12 @@ jobs:
   analyze-and-build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      # Liquid Glass (NSGlassEffectView) uchun Xcode 26+ / Swift 6.2+ kerak
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - run: xcodebuild -version && swift --version
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

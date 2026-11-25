@@ -27,6 +27,8 @@ class MainFlutterWindow: NSPanel {
   private var lastChangeCount = NSPasteboard.general.changeCount
   private var lastPrivacy: [String: Bool] = [:]
   private let eventStore = EKEventStore()
+  private var glassView: NSView?
+  private var glassVisible = false
 
   override var canBecomeKey: Bool { true }
   override var canBecomeMain: Bool { false }
@@ -34,7 +36,10 @@ class MainFlutterWindow: NSPanel {
   override func awakeFromNib() {
     let vc = FlutterViewController()
     vc.backgroundColor = .clear
-    contentViewController = vc
+    // Flutter ko'rinishi ortida Liquid Glass qatlami turadi
+    let root = GlassRootController(flutter: vc, size: NSSize(width: winW, height: winH))
+    glassView = root.glass
+    contentViewController = root
     RegisterGeneratedPlugins(registry: vc)
 
     styleMask = [.borderless, .nonactivatingPanel, .fullSizeContentView]
@@ -148,6 +153,15 @@ class MainFlutterWindow: NSPanel {
       let h = args["height"] as? Double ?? 32
       islandSize = NSSize(width: w, height: h)
       result(nil)
+    case "setGlass":
+      updateGlass(
+        width: CGFloat(args["width"] as? Double ?? 0),
+        height: CGFloat(args["height"] as? Double ?? 0),
+        radius: CGFloat(args["radius"] as? Double ?? 0),
+        visible: args["visible"] as? Bool ?? false)
+      result(nil)
+    case "glassSupported":
+      result(GlassRootController.liquidGlassAvailable)
     case "getBattery":
       result(batteryInfo())
     case "media":
@@ -215,6 +229,26 @@ class MainFlutterWindow: NSPanel {
       result(nil)
     default:
       result(FlutterMethodNotImplemented)
+    }
+  }
+
+  // MARK: - Liquid Glass
+
+  /// Shisha qatlamini orolning hozirgi (animatsiyadagi) shakliga moslaydi.
+  private func updateGlass(width: CGFloat, height: CGFloat, radius: CGFloat, visible: Bool) {
+    guard let g = glassView, let host = g.superview else { return }
+    let b = host.bounds
+    // Yuqori qirra oyna chegarasidan radius qadar tashqariga chiqadi —
+    // shunda faqat pastki burchaklar yumaloq ko'rinadi (notch'ga yopishgan shakl).
+    g.frame = NSRect(x: ((b.width - width) / 2).rounded(), y: b.height - height,
+                     width: width.rounded(), height: height + radius)
+    GlassRootController.setCornerRadius(g, radius)
+    if visible != glassVisible {
+      glassVisible = visible
+      NSAnimationContext.runAnimationGroup { ctx in
+        ctx.duration = visible ? 0.18 : 0.28
+        g.animator().alphaValue = visible ? 1 : 0
+      }
     }
   }
 
@@ -474,5 +508,77 @@ class MainFlutterWindow: NSPanel {
           "color": hex,
         ]
       }
+  }
+}
+
+
+// MARK: - Liquid Glass ildiz ko'rinishi
+
+/// Flutter ko'rinishi va uning ortidagi shisha qatlamini birga saqlaydi.
+final class GlassRootController: NSViewController {
+  let flutter: FlutterViewController
+  let glass: NSView
+  private let size: NSSize
+
+  init(flutter: FlutterViewController, size: NSSize) {
+    self.flutter = flutter
+    self.size = size
+    self.glass = GlassRootController.makeGlass()
+    super.init(nibName: nil, bundle: nil)
+  }
+
+  required init?(coder: NSCoder) { fatalError("init(coder:) ishlatilmaydi") }
+
+  override func loadView() {
+    let root = NSView(frame: NSRect(origin: .zero, size: size))
+    root.wantsLayer = true
+    glass.alphaValue = 0
+    glass.frame = .zero
+    root.addSubview(glass)
+    addChild(flutter)
+    flutter.view.frame = root.bounds
+    flutter.view.autoresizingMask = [.width, .height]
+    root.addSubview(flutter.view)
+    view = root
+  }
+
+  /// Apple Liquid Glass (macOS 26+) mavjudmi
+  static var liquidGlassAvailable: Bool {
+    #if compiler(>=6.2)
+    if #available(macOS 26.0, *) { return true }
+    #endif
+    return false
+  }
+
+  static func makeGlass() -> NSView {
+    #if compiler(>=6.2)
+    if #available(macOS 26.0, *) {
+      let g = NSGlassEffectView()
+      g.style = .regular
+      g.cornerRadius = 28
+      // Oq matn har qanday fon ustida o'qilishi uchun shisha biroz qoraytiriladi
+      g.tintColor = NSColor.black.withAlphaComponent(0.22)
+      return g
+    }
+    #endif
+    let v = NSVisualEffectView()
+    v.material = .hudWindow
+    v.blendingMode = .behindWindow
+    v.state = .active
+    v.appearance = NSAppearance(named: .darkAqua)
+    v.wantsLayer = true
+    v.layer?.cornerRadius = 28
+    v.layer?.masksToBounds = true
+    return v
+  }
+
+  static func setCornerRadius(_ v: NSView, _ r: CGFloat) {
+    #if compiler(>=6.2)
+    if #available(macOS 26.0, *), let g = v as? NSGlassEffectView {
+      if g.cornerRadius != r { g.cornerRadius = r }
+      return
+    }
+    #endif
+    if v.layer?.cornerRadius != r { v.layer?.cornerRadius = r }
   }
 }

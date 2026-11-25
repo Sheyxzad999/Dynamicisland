@@ -80,10 +80,7 @@ class CalendarTab extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 5),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: live ? color.withValues(alpha: 0.18) : kCard,
-        borderRadius: BorderRadius.circular(10),
-      ),
+      decoration: glassTile(radius: 10, tint: live ? color : null, active: live),
       child: Row(children: [
         Container(width: 3, height: 26, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 10),

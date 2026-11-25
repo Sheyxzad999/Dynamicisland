@@ -80,10 +80,7 @@ class _ClipboardTabState extends State<ClipboardTab> {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: copied ? kGreen.withValues(alpha: 0.15) : kCard,
-        borderRadius: BorderRadius.circular(10),
-      ),
+      decoration: glassTile(radius: 10, tint: copied ? kGreen : null, active: copied),
       child: Row(children: [
         if (it.pinned) const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.push_pin, size: 12, color: kOrange)),
         Expanded(

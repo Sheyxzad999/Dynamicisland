@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
@@ -60,6 +61,35 @@ class IslandAlert {
 
 // ---------------------------------------------------------------------------
 
+/// Orolning animatsiyadagi shakli: o'lcham, burchak radiusi va shishalik darajasi.
+class IslandShape {
+  final double w, h, r, glass;
+  const IslandShape(this.w, this.h, this.r, this.glass);
+  static IslandShape lerp(IslandShape a, IslandShape b, double t) => IslandShape(
+        lerpDouble(a.w, b.w, t)!,
+        lerpDouble(a.h, b.h, t)!,
+        lerpDouble(a.r, b.r, t)!,
+        lerpDouble(a.glass, b.glass, t)!,
+      );
+  @override
+  bool operator ==(Object other) =>
+      other is IslandShape &&
+      (other.w - w).abs() < 0.5 &&
+      (other.h - h).abs() < 0.5 &&
+      (other.r - r).abs() < 0.5 &&
+      (other.glass > 0.01) == (glass > 0.01);
+  @override
+  int get hashCode => Object.hash(w.round(), h.round(), r.round(), glass > 0.01);
+}
+
+class IslandShapeTween extends Tween<IslandShape> {
+  IslandShapeTween({super.begin, super.end});
+  @override
+  IslandShape lerp(double t) => IslandShape.lerp(begin!, end!, t);
+}
+
+/// Skrinshot va sinov uchun: `--dart-define=OROL_DEMO=0` — orol ochiq, 0-bo'lim.
+
 class Island extends StatefulWidget {
   const Island({super.key});
   @override
@@ -89,6 +119,9 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   // Sozlamalar
   bool showPrayer = true;
   bool launchAtLogin = false;
+  bool useGlass = true;
+  bool glassNative = false;
+  IslandShape? _sentGlass;
   String? _lastPrayerAlert;
   String? _lastEventAlert;
   String? _armedAction; // tasdiq kutayotgan tezkor amal
@@ -115,11 +148,23 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
     _prevBattery = native.battery.value;
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     _loadPrefs();
+    native.glassSupported().then((v) => setState(() => glassNative = v));
+    if (kDemo.isNotEmpty) {
+      expanded = true;
+      tab = int.tryParse(kDemo) ?? 0;
+      if (kDemo == 'cycle') {
+        Timer.periodic(const Duration(seconds: 3), (_) => setState(() => tab = (tab + 1) % _tabs.length));
+      }
+      native.media.value = MediaInfo(
+          state: 'playing', title: 'Tungi shahar', artist: 'Lo-fi Toshkent', position: 73, duration: 214, source: 'Music');
+      eq.repeat();
+    }
   }
 
   Future<void> _loadPrefs() async {
     final p = await SharedPreferences.getInstance();
     showPrayer = p.getBool('showPrayer') ?? true;
+    useGlass = p.getBool('useGlass') ?? true;
     final saved = p.getStringList('shelf') ?? [];
     final ok = <String>[];
     for (final s in saved) {
@@ -142,6 +187,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   }
 
   void _onHover() {
+    if (kDemo.isNotEmpty) return;
     _collapseTimer?.cancel();
     _hoverTimer?.cancel();
     if (native.hover.value) {
@@ -332,7 +378,8 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       WidgetsBinding.instance.addPostFrameCallback((_) => native.setIslandSize(size));
     }
     final open = expanded || dragging;
-    final radius = open ? 28.0 : (_bannerAlert ? 22.0 : n.height * 0.32);
+    final radius = open ? 30.0 : (_bannerAlert ? 24.0 : n.height * 0.32);
+    final glassOn = useGlass && (open || _bannerAlert);
 
     final Widget content;
     if (open) {
@@ -367,19 +414,46 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       },
       child: Align(
         alignment: Alignment.topCenter,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 380),
+        child: TweenAnimationBuilder<IslandShape>(
+          tween: IslandShapeTween(end: IslandShape(size.width, size.height, radius, glassOn ? 1 : 0)),
+          duration: const Duration(milliseconds: 420),
           curve: Curves.easeOutBack,
-          width: size.width,
-          height: size.height,
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(radius)),
-            boxShadow: open
-                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.45), blurRadius: 24, offset: const Offset(0, 8))]
-                : null,
-          ),
-          clipBehavior: Clip.antiAlias,
+          builder: (context, s, child) {
+            _syncGlass(s);
+            final g = s.glass.clamp(0.0, 1.0);
+            // Notch bilan qo'shilib ketishi uchun yopiq holatda — sof qora,
+            // ochilganda — ortidagi Liquid Glass ko'rinadi.
+            final solid = glassNative ? 0.0 : 0.5;
+            return Container(
+              width: s.w,
+              height: s.h,
+              decoration: BoxDecoration(
+                color: g > 0 ? null : Colors.black,
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(s.r.clamp(0, 60))),
+                gradient: g > 0
+                    ? LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color.lerp(Colors.black, Colors.black.withValues(alpha: solid + 0.10), g)!,
+                          Color.lerp(Colors.black, Colors.black.withValues(alpha: solid), g)!,
+                        ],
+                      )
+                    : null,
+                boxShadow: open
+                    ? [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 30, offset: const Offset(0, 12))]
+                    : null,
+              ),
+              foregroundDecoration: g > 0
+                  ? BoxDecoration(
+                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(s.r.clamp(0, 60))),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.14 * g), width: 0.8),
+                    )
+                  : null,
+              clipBehavior: Clip.antiAlias,
+              child: child,
+            );
+          },
           child: OverflowBox(
             alignment: Alignment.topCenter,
             minWidth: size.width,
@@ -397,6 +471,16 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  /// Native shisha qatlamini Flutter'dagi animatsiyaga ergashtiradi.
+  void _syncGlass(IslandShape s) {
+    if (s == _sentGlass) return;
+    _sentGlass = s;
+    final visible = s.glass > 0.01;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      native.setGlass(s.w, s.h, s.r.clamp(0, 60), visible);
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -492,7 +576,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
           onTap: () => setState(() => alert = null),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(14)),
+            decoration: glassTile(radius: 14, tint: color, active: true),
             child: Text('OK', style: TextStyle(color: color, fontWeight: FontWeight.w600)),
           ),
         ),
@@ -612,21 +696,33 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       Padding(
         padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
         child: SizedBox(
-          height: 28,
+          height: 32,
           child: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(2),
+              decoration: glassTile(radius: 16),
+              child: Row(children: [
             for (var i = 0; i < _tabs.length; i++)
               Tap(
                 tooltip: tab == i ? null : _tabs[i].$2,
                 onTap: () => setState(() => tab = i),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
                   height: 28,
-                  margin: const EdgeInsets.only(right: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 9),
-                  decoration: BoxDecoration(
-                    color: tab == i ? Colors.white.withValues(alpha: 0.14) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(9),
-                  ),
+                  decoration: tab == i
+                      ? BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.white.withValues(alpha: 0.30), Colors.white.withValues(alpha: 0.16)],
+                          ),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 0.8),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 2))],
+                        )
+                      : const BoxDecoration(),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(_tabs[i].$1, size: 15, color: tab == i ? Colors.white : kDim),
                     if (tab == i) ...[
@@ -637,6 +733,8 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
                   ]),
                 ),
               ),
+              ]),
+            ),
             const Spacer(),
             for (final a in _actions) _actionButton(a.$1, a.$2, a.$3),
           ]),
@@ -666,7 +764,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
   Widget _homeTab() {
     return Row(children: [
       Expanded(child: _musicPlayer()),
-      Container(width: 1, margin: const EdgeInsets.symmetric(horizontal: 14), color: Colors.white10),
+      Container(width: 1, margin: const EdgeInsets.symmetric(horizontal: 14), color: kHair),
       SizedBox(width: 190, child: _sideInfo()),
     ]);
   }
@@ -704,7 +802,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(3),
             child: LinearProgressIndicator(
               value: frac, minHeight: 4,
-              backgroundColor: Colors.white12,
+              backgroundColor: Colors.white.withValues(alpha: 0.16),
               valueColor: const AlwaysStoppedAnimation(Colors.white),
             ),
           ),
@@ -833,7 +931,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
             child: Container(
               width: 76, height: 40,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: kCard, borderRadius: BorderRadius.circular(12)),
+              decoration: glassTile(radius: 12),
               child: Text(m < 60 ? '$m daq' : '${m ~/ 60}${m % 60 == 0 ? '' : ',5'} soat',
                   style: const TextStyle(color: kOrange, fontWeight: FontWeight.w600, fontSize: 13)),
             ),
@@ -900,7 +998,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       child: Container(
         width: 92,
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: kCard, borderRadius: BorderRadius.circular(14)),
+        decoration: glassTile(radius: 14),
         child: Stack(children: [
           Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             Icon(icon, color: color, size: 34),
@@ -967,11 +1065,10 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
             Expanded(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(
-                  color: next?.name == p.name && next?.time == p.time ? kTeal.withValues(alpha: 0.18) : kCard,
-                  borderRadius: BorderRadius.circular(14),
-                  border: next?.name == p.name && next?.time == p.time ? Border.all(color: kTeal.withValues(alpha: 0.6)) : null,
-                ),
+                decoration: glassTile(
+                    radius: 14,
+                    tint: next?.name == p.name && next?.time == p.time ? kTeal : null,
+                    active: next?.name == p.name && next?.time == p.time),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Text(p.name, style: TextStyle(color: p.time.isBefore(now) ? kDim : Colors.white, fontSize: 12)),
                   const SizedBox(height: 4),
@@ -1003,10 +1100,10 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
                 margin: const EdgeInsets.only(right: 6),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: prayers.cityName.value == c.name ? kTeal.withValues(alpha: 0.25) : kCard,
-                  borderRadius: BorderRadius.circular(14),
-                ),
+                decoration: glassTile(
+                    radius: 14,
+                    tint: prayers.cityName.value == c.name ? kTeal : null,
+                    active: prayers.cityName.value == c.name),
                 child: Text(c.name,
                     style: TextStyle(color: prayers.cityName.value == c.name ? kTeal : Colors.white, fontSize: 12)),
               ),
@@ -1014,6 +1111,12 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
         ]),
       ),
       const SizedBox(height: 10),
+      _toggle(glassNative ? 'Liquid Glass ko‘rinishi' : 'Shaffof (shisha) ko‘rinish', useGlass, (v) async {
+        setState(() => useGlass = v);
+        final p = await SharedPreferences.getInstance();
+        await p.setBool('useGlass', v);
+      }),
+      const SizedBox(height: 8),
       Row(children: [
         Expanded(
           child: _toggle('Kompyuter yonganda ochilsin', launchAtLogin, (v) async {
@@ -1034,7 +1137,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       ]),
       const Spacer(),
       Row(children: [
-        const Text('Dinamik Orol 1.0', style: TextStyle(color: Colors.white24, fontSize: 11)),
+        const Text('Dinamik Orol 1.2', style: TextStyle(color: Colors.white38, fontSize: 11)),
         const Spacer(),
         _pill('Dasturdan chiqish', const Color(0xFFFF453A), native.quit),
       ]),
@@ -1047,7 +1150,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
       child: Container(
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(color: kCard, borderRadius: BorderRadius.circular(12)),
+        decoration: glassTile(radius: 12),
         child: Row(children: [
           Expanded(child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 12))),
           AnimatedContainer(
@@ -1055,7 +1158,11 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
             width: 34, height: 20,
             padding: const EdgeInsets.all(2),
             alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-            decoration: BoxDecoration(color: value ? kGreen : Colors.white24, borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(
+              color: value ? kGreen : Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: value ? [BoxShadow(color: kGreen.withValues(alpha: 0.45), blurRadius: 8)] : null,
+            ),
             child: Container(width: 16, height: 16, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
           ),
         ]),
@@ -1072,7 +1179,7 @@ class _IslandState extends State<Island> with TickerProviderStateMixin {
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(14)),
+          decoration: glassTile(radius: 14, tint: color, active: true),
           child: Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
         ),
       );

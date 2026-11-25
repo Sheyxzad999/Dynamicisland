@@ -41,7 +41,7 @@ class WeatherTab extends StatelessWidget {
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 3),
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(color: kCard, borderRadius: BorderRadius.circular(14)),
+                    decoration: glassTile(radius: 14),
                     child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                       Text(_dayName(d.date), style: const TextStyle(color: kDim, fontSize: 11)),
                       Icon(weatherIcon(d.code), color: weatherColor(d.code), size: 24),

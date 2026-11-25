@@ -1,5 +1,17 @@
 # O'zgarishlar tarixi
 
+## [1.2.0] - 2026-11-25
+
+### Qo'shildi
+- 💎 **Liquid Glass**: orol ochilganda Apple'ning haqiqiy Liquid Glass materiali (macOS 26+),
+  eski tizimlarda — shaffof xira shisha. Shisha orol animatsiyasiga kadrma-kadr ergashadi
+- Sozlamalarda "Liquid Glass ko'rinishi" tanlovi — o'chirilsa, klassik qora orol
+
+### O'zgardi
+- Yopiq holatda orol avvalgidek sof qora — notch bilan qo'shilib ketadi
+- Bo'limlar paneli, kartalar, tugmalar va kalitlar shisha uslubida qayta chizildi
+- Ochilish animatsiyasi silliqroq (420 ms)
+
 ## [1.1.1] - 2026-11-15
 
 ### Tuzatildi

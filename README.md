@@ -24,6 +24,8 @@ Ekran tepasidagi qora kesikni foydali vositaga aylantiradi: musiqa, taymer, fayl
 
 Sichqonchani notch ustiga olib boring, orol kattalashib ochiladi. Yopiq turganda esa muhim ma'lumot notch yonida ko'rinib turadi.
 
+> 💎 **Liquid Glass** (v1.2): ochilgan orol Apple'ning haqiqiy Liquid Glass materialidan yasalgan — ortidagi ish stoli shisha orqali xira koʻrinadi. Yopiq holatda orol sof qora boʻlib, notch bilan qoʻshilib ketadi. macOS 26 dan eski tizimlarda shaffof xira shisha ishlatiladi; sozlamalarda klassik qora koʻrinishga qaytish mumkin.
+
 | | Bo'lim | Tavsif |
 |---|---|---|
 | 🎵 | **Musiqa** | Spotify va Apple Music: qo'shiq nomi, muqovasi, vaqt chizig'i, boshqaruv tugmalari. Ijro etilganda notch yonida ekvalayzer "o'ynaydi" |
@@ -38,7 +40,7 @@ Sichqonchani notch ustiga olib boring, orol kattalashib ochiladi. Yopiq turganda
 | 🎙 | **Maxfiylik chiroqlari** | Mikrofon (🟠) yoki kamera (🟢) ishlatilayotganda notch yonida nuqta yonadi |
 | ⚡ | **Tezkor amallar** | Ekranni qulflash, ekranni o'chirish, uyqu rejimi, ekran rasmi |
 | 🔋 | **Batareya** | Foiz, to'lishigacha yoki tugashigacha qolgan vaqt. Zaryadlovchi ulanganda iPhone'dagidek animatsiya |
-| ⚙️ | **Sozlamalar** | Shahar tanlash, kompyuter yonganda avtomatik ishga tushish |
+| ⚙️ | **Sozlamalar** | Shahar tanlash, Liquid Glass / klassik qora koʻrinish, kompyuter yonganda avtomatik ishga tushish |
 
 ### Holatlar
 

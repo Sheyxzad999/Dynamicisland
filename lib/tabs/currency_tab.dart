@@ -71,7 +71,7 @@ class _CurrencyTabState extends State<CurrencyTab> {
                   child: Container(
                     height: 40,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(color: kCard, borderRadius: BorderRadius.circular(12)),
+                    decoration: glassTile(radius: 12),
                     child: Row(children: [
                       Expanded(
                         child: TextField(
@@ -95,7 +95,7 @@ class _CurrencyTabState extends State<CurrencyTab> {
                   onTap: () => setState(() => toSom = !toSom),
                   child: Container(
                     width: 40, height: 40,
-                    decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(12)),
+                    decoration: glassTile(radius: 12, tint: kGreen, active: true),
                     child: const Icon(Icons.swap_horiz_rounded, color: kGreen, size: 20),
                   ),
                 ),
@@ -120,10 +120,7 @@ class _CurrencyTabState extends State<CurrencyTab> {
                     onTap: () => _pick(r.code),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: r.code == rate.code ? kGreen.withValues(alpha: 0.2) : kCard,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      decoration: glassTile(radius: 10, tint: r.code == rate.code ? kGreen : null, active: r.code == rate.code),
                       child: Text('${currencyFlags[r.code]} ${r.code}',
                           style: TextStyle(color: r.code == rate.code ? kGreen : Colors.white, fontSize: 11)),
                     ),
